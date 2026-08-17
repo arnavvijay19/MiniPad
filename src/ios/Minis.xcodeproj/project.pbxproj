@@ -510,6 +510,7 @@
 		8FF60489B48287315DE5BB82 /* LocalAgentProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */; };
 		A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */; };
 		8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */; };
+		B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1148,6 +1149,7 @@
 		1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentProviderFactory.swift; path = Providers/Local/LocalAgentProviderFactory.swift; sourceTree = SOURCE_ROOT; };
 		F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelLifecycle.swift; path = Providers/Local/LocalModelLifecycle.swift; sourceTree = SOURCE_ROOT; };
 		454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedAgentSettingsView.swift; path = Views/Settings/UnifiedAgentSettingsView.swift; sourceTree = SOURCE_ROOT; };
+		E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ToolDisclosureState.swift; path = Agent/Unified/ToolDisclosureState.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2545,6 +2547,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */,
 				8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */,
 				A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */,
 				8FF60489B48287315DE5BB82 /* LocalAgentProviderFactory.swift in Sources */,

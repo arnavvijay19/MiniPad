@@ -107,8 +107,8 @@ provider.
 
 ### Stack
 
-Apple's `ml-explore/mlx-swift-lm` (`MLXLLM` + `MLXLMCommon`). Verified against
-the package at commit `d7dc03d` (2026-08-15): it provides `ChatSession` with
+Apple's `ml-explore/mlx-swift-lm` (`MLXLLM` + `MLXLMCommon` + `MLXHuggingFace`).
+Verified against the package at commit `d7dc03d` (2026-08-15): it provides `ChatSession` with
 KV-cache continuity, native tool-call parsing (`ToolCallProcessor`,
 `Generation.toolCall`), quantized KV cache, and a `ModelFactory` that downloads
 from Hugging Face. Writing an inference engine instead would be slower, more
@@ -116,7 +116,7 @@ fragile, and less correct.
 
 ### It is compile-gated
 
-Everything MLX-dependent sits inside `#if canImport(MLXLLM)`. Without the
+Everything MLX-dependent sits inside `#if canImport(MLXLLM) && canImport(MLXHuggingFace)`. Without the
 package the app builds unchanged and reports local inference as unavailable
 *with a reason*. This is not timidity — MLX raises the deployment floor, pulls
 in Metal kernels and a large dependency tree, and only works on Apple silicon.
@@ -124,8 +124,27 @@ A fork that hard-wires it pays that cost forever and makes every upstream merge
 harder.
 
 To enable: add `https://github.com/ml-explore/mlx-swift-lm` to the project,
-link `MLXLLM` and `MLXLMCommon` into the Minis target, and raise the iOS
-deployment target to 17.0 or later if it isn't already.
+link `MLXLLM`, `MLXLMCommon` and `MLXHuggingFace` into the Minis target, and
+raise the iOS deployment target to 17.0 or later if it isn't already. The
+package needs **Xcode with a Swift 6.3+ toolchain** — mlx-swift-lm declares
+swift-tools 6.2 and mlx-swift declares 6.3.
+
+#### Three defects this verification caught
+
+`scripts/typecheck_mlx_adapter.sh` typechecks the mapping against the real
+upstream types rather than against a reading of them. That found:
+
+1. `[String: Any]` does **not** convert to `ToolSpec` (`[String: any Sendable]`).
+   The schema builder now produces Sendable dictionaries directly.
+2. `LLMModelFactory.loadContainer(configuration:progressHandler:)` **does not
+   exist** — every non-macro entry point requires an explicit `Downloader` and
+   `TokenizerLoader`. The load path now uses `#huggingFaceLoadModelContainer`,
+   which is also why `MLXHuggingFace` must be linked.
+3. `GPU.set(cacheLimit:)` / `GPU.clearCache()` are deprecated, renamed to
+   `Memory.cacheLimit` / `Memory.clearCache()`.
+
+All three would have failed the first Xcode build. The script also asserts
+negatively that the two wrong APIs stay unused.
 
 ### Model compatibility is checked before download, not after
 
@@ -515,31 +534,20 @@ the LAN.
 
 Not "polish" — these are the real gaps between this and a daily driver.
 
-1. **Provider registration.** A `ProviderType.local` case plus factory branches
-   in `LLMProviderFactory` and `AIChatViewModel+ProviderFactory`, so a local
-   model is selectable like any other. `MLXLocalProvider` already conforms to
-   `AgentProvider`; this is the lookup.
-2. **Settings UI.** Endpoint configuration, model download with progress, and
-   the shortcut registry. All three stores (`RemoteEndpointStore`,
-   `LocalModelCatalog`, `ShortcutRegistryStore`) exist with the CRUD the views
-   need. SwiftUI is unverifiable here and is best written against the app's
-   existing view patterns on a Mac.
-3. **The Shortcuts callback route.** `ShortcutsBridge` builds and parses the
-   URLs and `PendingShortcutRuns` correlates them, but `DeepLinkRouter` needs a
-   `shortcut-callback` case, `Info.plist` needs `shortcuts` in
-   `LSApplicationQueriesSchemes`, and a `run_shortcut` tool has to be
-   registered.
-4. **Permission prompts.** Cross-machine copies and destructive remote commands
-   should route through `OffloadPermissionManager`'s existing pattern.
-5. **Memory-pressure handling.** `LocalModelRuntime.unload()` exists; it needs
-   wiring to `didReceiveMemoryWarning`.
-6. **Benchmarks.** See below.
+Everything the brief listed as remaining after the first pass is now done:
+provider registration, the settings UI, the Shortcuts callback route,
+permission prompts, and the memory-pressure ladder. What is genuinely left:
 
-Done since the first draft of this document: the agent-loop wiring. The four
-core tools carry `target`, `AIChatViewModel+ConcurrentTools` routes through
-`UnifiedToolRouter`, and both system-prompt assembly sites inject the
-capability fragments — 129 insertions across three upstream files, no
-deletions.
+1. **Benchmarks on hardware.** See §11. No number here is invented.
+2. **Cross-machine copy as a single tool.** The primitives exist and are tested
+   (`CrossTargetCopy`, remote read/write), and the agent can already do it in
+   two steps. A dedicated tool would spend permanent context on something the
+   model composes correctly today, so it is deliberately deferred until the
+   device benchmarks show whether that context is affordable.
+3. **`LLMProvider` (non-agent) support for local models.** Title generation and
+   other sub-tasks use the simple-completion protocol, which `MLXLocalProvider`
+   does not implement; those fall back to their defaults rather than silently
+   reaching for a cloud model the user may have disabled on purpose.
 
 ---
 

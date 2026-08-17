@@ -246,10 +246,18 @@ extension AIChatViewModel {
                     }
                 }
             ) {
-                toolOutput = remote.output
+                // Same env-var redaction the local shell path applies below. A
+                // secret echoed by a command on the PC must not reach the
+                // transcript (or the model provider) when the identical command
+                // run locally would have been masked.
+                let (redactedRemote, remoteHits) = EnvVarRedactor.redactIfEnabled(remote.output)
+                if remoteHits > 0 {
+                    ctLogger.info("[EnvVarRedact] remote shell_execute: masked \(remoteHits) env-var value(s)")
+                }
+                toolOutput = redactedRemote
                 toolSuccess = remote.success
                 if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
-                    messages[msgIdx].blocks[blockIdx].content = remote.output
+                    messages[msgIdx].blocks[blockIdx].content = redactedRemote
                 }
                 break
             }

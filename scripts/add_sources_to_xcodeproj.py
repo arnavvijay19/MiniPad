@@ -29,6 +29,7 @@ FILES = [
     ('Agent/Unified/AIChatViewModel+UnifiedCapabilities.swift', True, False),
     ('Agent/Unified/RemoteCommandRisk.swift', True, True),
     ('Agent/Unified/RemoteActionApproval.swift', True, False),
+    ('Agent/Unified/ToolDisclosureState.swift', True, False),
     ('Agent/Unified/Shortcuts/ShortcutRunCoordinator.swift', True, False),
     ('Providers/Local/LocalModelStore.swift', True, False),
     ('Providers/Local/LocalAgentProviderFactory.swift', True, False),

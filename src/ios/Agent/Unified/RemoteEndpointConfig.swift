@@ -27,7 +27,8 @@ struct RemoteEndpointConfig: Codable, Hashable, Sendable, Identifiable {
     /// User-facing name ("Desktop", "Work PC"). Shown in provenance lines so a
     /// two-machine session reads naturally.
     var displayName: String
-    /// The MCP endpoint, e.g. `http://192.168.1.38:8766/mcp`.
+    /// The MCP endpoint, e.g. `http://192.168.1.10:8766/mcp`. The example is
+    /// generic on purpose: no real address belongs in the source.
     var urlString: String
     /// Which target this endpoint serves.
     var target: ExecutionTarget

@@ -9,7 +9,7 @@ checklist.
 
 ## 1. What has already been verified, and how to reproduce it
 
-### Off-device unit tests — 286 tests, 0 failures
+### Off-device unit tests — 303 tests, 0 failures
 
 The new code is written to compile against Foundation alone, so it can be
 tested without a Mac. The harness compiles the production sources directly,
@@ -74,6 +74,45 @@ Re-run this after editing any tool description. A few sentences added to a
 description is a few hundred tokens taken out of every request a 4B model ever
 makes, and that cost is otherwise invisible.
 
+### MLX adapter, against the real package API
+
+```sh
+./scripts/typecheck_mlx_adapter.sh /path/to/swift-6.3+/usr/bin
+```
+
+Resolves mlx-swift-lm (resolve only — the C++ backend never builds), copies the
+MLX-free type definitions verbatim, extracts the `Chat.Message` mapping straight
+out of MLXLocalProvider so it cannot drift, typechecks it, then asserts 17
+further API facts. It found three real defects; see ARCHITECTURE §3.
+
+Needs **Swift 6.3+**: mlx-swift-lm declares swift-tools 6.2 and mlx-swift
+declares 6.3, so nothing older can resolve the package at all.
+
+### Windows backend, end to end over a real socket
+
+```sh
+./scripts/integration_test_mcp.sh /path/to/swift/usr/bin
+```
+
+Runs the real client, adapter and executor against
+`scripts/mock_desktop_commander.py` — a genuine MCP server on localhost — in
+four scenarios (36 checks): full surface, compact surface with shell-emulation
+fallback, SSE responses, and a session dropped mid-run. Everything runs under a
+temp directory that is removed on exit.
+
+The user's real LAN endpoint is not reachable from a container or from CI, so
+this is the strongest available substitute. It cannot verify that the remote OS
+is Windows — see §3.4 for the checks that still need the real machine.
+
+### ProviderType exhaustiveness
+
+```sh
+python3 scripts/check_provider_type_exhaustive.py
+```
+
+Adding `ProviderType.local` broke exhaustiveness at 28 sites. On a Mac the
+compiler finds them; this finds them without one.
+
 ### Xcode project integrity
 
 `scripts/add_sources_to_xcodeproj.py` is idempotent; re-running it should print
@@ -119,7 +158,7 @@ xcodebuild test -project src/ios/Minis.xcodeproj -scheme Minis \
                 -destination 'platform=iOS,name=<your iPad>'
 ```
 
-Expect the 286 new tests plus the pre-existing suites. If a new suite fails
+Expect the 303 new tests plus the pre-existing suites. If a new suite fails
 here but passes on Linux, the cause is almost certainly a type collision
 between `TestSupport_AgentTypes.swift` and a production source newly added to
 the test target — check the `MinisTests` Sources phase.

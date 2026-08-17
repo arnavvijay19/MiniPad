@@ -70,7 +70,32 @@ extension AIChatViewModel {
                 propertyOrdering: ["tool_title", "name", "input"]
             ))
         }
-        return tools
+        // [unified-context] Apply the lean surface for on-device models.
+        //
+        // This is where the measured saving is actually realised: browser_use
+        // alone is 1632 Qwen tokens — half the whole tool surface — and most
+        // turns never touch it. Remote models keep `.full`, so their behaviour
+        // is byte-identical to upstream.
+        let mode = LocalAgentProviderFactory.toolSurfaceMode(forModelID: selectedModel.id)
+        guard mode == .lean else { return tools }
+
+        let selection = ToolSurfacePolicy.select(
+            allTools: tools,
+            mode: mode,
+            conversationText: recentConversationText(),
+            alreadyDisclosed: ToolDisclosureState.shared.disclosed(for: sessionId)
+        )
+        ToolDisclosureState.shared.record(selection.disclosed, for: sessionId)
+        return selection.tools
+    }
+
+    /// Recent conversation text, for disclosure triggers.
+    ///
+    /// The last few messages only. Scanning the whole transcript would keep a
+    /// capability disclosed forever because of one mention twenty turns ago,
+    /// and the scan runs on every request.
+    private func recentConversationText() -> String {
+        messages.suffix(4).map(\.content).joined(separator: "\n")
     }
 
     private func makeBaseAgentTools() -> [AgentToolDefinition] {

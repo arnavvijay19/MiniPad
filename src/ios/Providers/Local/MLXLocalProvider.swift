@@ -354,6 +354,11 @@ actor LocalModelRuntime {
         if let container, loadedRepoID == repoID { return container }
         if loadedRepoID != nil { unload() }
 
+        // A multi-gigabyte download with no visible progress reads as a hang,
+        // and the user cannot tell it from one. Report into the store so the
+        // settings row shows a bar.
+        await MainActor.run { LocalModelStore.shared.setState(.downloading(fraction: 0), repoID: repoID) }
+
         // Cap MLX's buffer cache. Without this the allocator keeps freed
         // buffers around, which on a memory-limited device reads to the OS as
         // sustained high usage and gets the app jetsammed during an unrelated
@@ -368,7 +373,13 @@ actor LocalModelRuntime {
             // every non-macro entry point requires both explicitly.
             let loaded = try await #huggingFaceLoadModelContainer(
                 configuration: configuration,
-                progressHandler: { p in progress?(p.fractionCompleted) }
+                progressHandler: { p in
+                    progress?(p.fractionCompleted)
+                    Task { @MainActor in
+                        LocalModelStore.shared.setState(
+                            .downloading(fraction: p.fractionCompleted), repoID: repoID)
+                    }
+                }
             )
             container = loaded
             loadedRepoID = repoID
@@ -379,6 +390,10 @@ actor LocalModelRuntime {
             return loaded
         } catch {
             unload()
+            await MainActor.run {
+                LocalModelStore.shared.setState(
+                    .failed(error.localizedDescription), repoID: repoID)
+            }
             throw LocalInferenceError.loadFailed(error.localizedDescription)
         }
     }

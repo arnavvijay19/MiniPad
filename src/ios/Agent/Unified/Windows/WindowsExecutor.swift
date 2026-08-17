@@ -204,22 +204,43 @@ struct WindowsExecutor: UnifiedExecutor {
     func cancel(_ handle: ExecutionHandle) async throws {
         try await client.connect()
         guard let caps = await client.capabilities else { return }
+        // Try the native verb, then the shell. A failure in the first is not
+        // fatal — falling through is the whole point — but a failure in both
+        // leaves a live process on the user's machine, so it is thrown rather
+        // than swallowed. Callers that genuinely don't care use `try?`.
+        //
+        // Deliberately no logging here: this type has no app dependencies,
+        // which is what lets it be exercised by the off-device harness and the
+        // integration driver. Reporting is the caller's job.
+        var lastError: Error?
+
         if let terminate = caps.binding(.terminateProcess) {
-            _ = try? await client.callTool(
-                name: terminate.toolName,
-                arguments: terminate.arguments([.processID: .string(handle.id)])
-            )
-            return
+            do {
+                _ = try await client.callTool(
+                    name: terminate.toolName,
+                    arguments: terminate.arguments([.processID: .string(handle.id)])
+                )
+                return
+            } catch {
+                lastError = error
+            }
         }
-        // No native terminate: kill it over the shell instead of leaving an
-        // orphaned process on the user's PC.
+
         if let start = caps.binding(.startProcess) {
-            let command = WindowsShellEmulation.terminateCommand(pid: handle.id)
-            _ = try? await client.callTool(
-                name: start.toolName,
-                arguments: start.arguments([.command: .string(command)])
-            )
+            do {
+                _ = try await client.callTool(
+                    name: start.toolName,
+                    arguments: start.arguments([
+                        .command: .string(WindowsShellEmulation.terminateCommand(pid: handle.id))
+                    ])
+                )
+                return
+            } catch {
+                lastError = error
+            }
         }
+
+        if let lastError { throw lastError }
     }
 
     // MARK: File operations

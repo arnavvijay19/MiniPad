@@ -827,6 +827,10 @@ struct ContentView: View {
         // Open the SettingsSheet whenever a deep link sets a settings
         // target. SettingsSheet itself reads `deepLink.pendingSettingsTarget`
         // in onAppear/onChange to push the right destination, then clears it.
+        // [unified-exec] The confirmation for a destructive action on the PC.
+        // Attached here because a suspended tool call is waiting on it: without
+        // a presenter, RemoteActionApproval.request() never returns.
+        .remoteActionApprovalPrompt()
         .onChange(of: deepLink.pendingSettingsTarget) { target in
             guard target != nil else { return }
             if activeToolSheet != .settings {
