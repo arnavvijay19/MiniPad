@@ -9,7 +9,7 @@ checklist.
 
 ## 1. What has already been verified, and how to reproduce it
 
-### Off-device unit tests — 267 tests, 0 failures
+### Off-device unit tests — 286 tests, 0 failures
 
 The new code is written to compile against Foundation alone, so it can be
 tested without a Mac. The harness compiles the production sources directly,
@@ -38,6 +38,7 @@ for f in \
   Agent/Unified/UnifiedPath.swift \
   Agent/Unified/RemoteEndpointConfig.swift \
   Agent/Unified/ToolSurfacePolicy.swift \
+  Agent/Unified/UnifiedToolRouting.swift \
   Agent/Unified/MCP/MCPWireProtocol.swift \
   Agent/Unified/MCP/HTTPStreamTransport.swift \
   Agent/Unified/MCP/MCPHTTPClient.swift \
@@ -118,7 +119,7 @@ xcodebuild test -project src/ios/Minis.xcodeproj -scheme Minis \
                 -destination 'platform=iOS,name=<your iPad>'
 ```
 
-Expect the 267 new tests plus the pre-existing suites. If a new suite fails
+Expect the 286 new tests plus the pre-existing suites. If a new suite fails
 here but passes on Linux, the cause is almost certainly a type collision
 between `TestSupport_AgentTypes.swift` and a production source newly added to
 the test target — check the `MinisTests` Sources phase.

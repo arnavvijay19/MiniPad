@@ -457,7 +457,7 @@ Honest, per component.
 
 ### Verified — compiled and unit-tested off-device
 
-Swift 6.0.3 on Linux, **267 tests, 0 failures**. Strict concurrency, which is
+Swift 6.0.3 on Linux, **286 tests, 0 failures**. Strict concurrency, which is
 stricter than the app target's Swift 5 mode, so passing here implies passing
 there for these files.
 
@@ -481,7 +481,8 @@ there for these files.
 | `LocalToolSchemaBuilderTests` | 5 |
 | `OutputClipperTests` | 4 |
 | `LocalInferenceAvailabilityTests` | 2 |
-| **total** | **267** |
+| `UnifiedToolRoutingTests` | 19 |
+| **total** | **286** |
 
 Also verified: the tool-context measurement runs end-to-end from a clean
 checkout, and `project.pbxproj` is structurally valid (balanced, no dangling
@@ -514,20 +515,31 @@ the LAN.
 
 Not "polish" — these are the real gaps between this and a daily driver.
 
-1. **Agent-loop wiring.** The `target` parameter needs adding to the four tool
-   definitions, and `AIChatViewModel+ConcurrentTools`'s `shell_execute` /
-   `file_*` cases need to route through `WindowsExecutor` when it is set. The
-   executor and everything under it is done and tested; this is the seam.
-2. **Provider registration.** A `ProviderType.local` case plus factory branches
-   in `LLMProviderFactory` and `AIChatViewModel+ProviderFactory`.
-3. **Settings UI.** Endpoint configuration, model download with progress, the
-   shortcut registry. SwiftUI, unverifiable here, and best written against the
-   app's existing view patterns on a Mac.
+1. **Provider registration.** A `ProviderType.local` case plus factory branches
+   in `LLMProviderFactory` and `AIChatViewModel+ProviderFactory`, so a local
+   model is selectable like any other. `MLXLocalProvider` already conforms to
+   `AgentProvider`; this is the lookup.
+2. **Settings UI.** Endpoint configuration, model download with progress, and
+   the shortcut registry. All three stores (`RemoteEndpointStore`,
+   `LocalModelCatalog`, `ShortcutRegistryStore`) exist with the CRUD the views
+   need. SwiftUI is unverifiable here and is best written against the app's
+   existing view patterns on a Mac.
+3. **The Shortcuts callback route.** `ShortcutsBridge` builds and parses the
+   URLs and `PendingShortcutRuns` correlates them, but `DeepLinkRouter` needs a
+   `shortcut-callback` case, `Info.plist` needs `shortcuts` in
+   `LSApplicationQueriesSchemes`, and a `run_shortcut` tool has to be
+   registered.
 4. **Permission prompts.** Cross-machine copies and destructive remote commands
    should route through `OffloadPermissionManager`'s existing pattern.
 5. **Memory-pressure handling.** `LocalModelRuntime.unload()` exists; it needs
    wiring to `didReceiveMemoryWarning`.
 6. **Benchmarks.** See below.
+
+Done since the first draft of this document: the agent-loop wiring. The four
+core tools carry `target`, `AIChatViewModel+ConcurrentTools` routes through
+`UnifiedToolRouter`, and both system-prompt assembly sites inject the
+capability fragments — 129 insertions across three upstream files, no
+deletions.
 
 ---
 
@@ -568,15 +580,17 @@ failing task 2 is a useful result, not a bug to hide.
 
 Divergence is the long-term cost of a fork, so:
 
-- **16 of 17 new files are new files.** The only touched upstream file is
-  `project.pbxproj` (80 insertions, no modified lines).
+- **Every change to an upstream file is additive.** Four upstream files are
+  touched — `AIChatViewModel.swift` (+10), `+ToolDefinitions.swift` (+46),
+  `+ConcurrentTools.swift` (+59) and `project.pbxproj` (+94) — with **zero
+  deleted or modified lines** between them. Everything else is a new file.
 - **No upstream behaviour changed.** `.full` tool mode is the default; remote
   providers, memory, skills, MCP, sync and the browser stack are untouched.
 - **MLX is optional**, so upstream can be merged without resolving a dependency
   graph.
-- Steps 1 and 2 of [Remaining work](#10-remaining-work) will touch
-  `AIChatViewModel` extensions. Keep those diffs additive — a new `case` and a
-  new branch, not a restructuring — so a rebase resolves textually.
+- Keep future edits to `AIChatViewModel` extensions additive in the same way —
+  a new `case` and a new branch, never a restructuring — so a rebase resolves
+  textually rather than by hand.
 
 Recommended: `git remote add upstream https://github.com/OpenMinis/OpenMinis`,
 then **rebase** feature work onto upstream tags rather than merging, so this
