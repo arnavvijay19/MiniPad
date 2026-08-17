@@ -323,6 +323,12 @@
 			</array>
 		</dict>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<!-- Required for canOpenURL("shortcuts://"). Without it the check always
+		     returns false and the agent reports Shortcuts as not installed. -->
+		<string>shortcuts</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Minis uses local network access for the debug server and to let the AI agent communicate with locally-hosted services.</string>
 	<key>NSAppTransportSecurity</key>

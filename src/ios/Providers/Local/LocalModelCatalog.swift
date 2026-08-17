@@ -273,7 +273,20 @@ struct LocalModelEntry: Codable, Hashable, Sendable, Identifiable {
 
     /// Model id used inside the app's provider/entry machinery. Prefixed so it
     /// can never collide with a remote provider's model id.
-    var appModelID: String { "local/\(repoID)" }
+    var appModelID: String { Self.appModelIDPrefix + repoID }
+
+    static let appModelIDPrefix = "local/"
+
+    /// Recover the Hugging Face repo id from an app model id.
+    ///
+    /// Returns nil for anything that isn't one of ours, so a remote model id
+    /// that happens to contain a slash can never be mistaken for a local repo
+    /// and routed to the on-device runtime.
+    static func repoID(fromAppModelID id: String) -> String? {
+        guard id.hasPrefix(appModelIDPrefix) else { return nil }
+        let repo = String(id.dropFirst(appModelIDPrefix.count))
+        return repo.isEmpty ? nil : repo
+    }
 }
 
 // MARK: - Seed catalog

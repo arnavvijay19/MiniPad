@@ -78,6 +78,21 @@ actor UnifiedToolRouter {
                 output: "Error: no remote computer is configured.", success: false)
         }
 
+        // Consequential operations on a machine the user isn't looking at get a
+        // confirmation. See RemoteCommandRisk for why this is a guardrail
+        // against a confused model, not a security boundary.
+        let risk = RemoteCommandRisk.classify(plan: plan)
+        if risk.needsConfirmation,
+           let message = RemoteCommandRisk.confirmationMessage(
+               risk: risk, hostLabel: endpoint.hostLabel, detail: Self.planDescription(plan)
+           ) {
+            if case .denied(let why) = await RemoteActionApproval.shared.request(
+                message: message, endpointId: endpoint.id
+            ) {
+                return RemoteToolOutcome(output: why, success: false)
+            }
+        }
+
         do {
             let executor = WindowsExecutor(client: try client(for: endpoint), config: endpoint)
             return try await perform(plan, with: executor, endpoint: endpoint, onOutput: onOutput)
@@ -191,6 +206,24 @@ actor UnifiedToolRouter {
             }
         } catch {
             return .unreachable(reason: error.localizedDescription)
+        }
+    }
+
+    /// What the confirmation prompt shows: the command verbatim for a shell
+    /// run, the path and size for a file operation.
+    private static func planDescription(_ plan: RemoteToolPlan) -> String {
+        switch plan {
+        case .shell(let command, _, _):
+            return command
+        case .writeFile(let path, let content, let append):
+            return "\(append ? "Append" : "Write") \(content.count) characters to \(path)"
+        case .editFile(let path, let old, _, let all):
+            let scope = all ? "every occurrence of " : ""
+            return "Replace \(scope)\"\(old.prefix(80))\" in \(path)"
+        case .readFile(let path):
+            return "Read \(path)"
+        case .local, .rejected:
+            return ""
         }
     }
 

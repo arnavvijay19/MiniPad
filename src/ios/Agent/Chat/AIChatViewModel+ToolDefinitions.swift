@@ -47,9 +47,30 @@ extension AIChatViewModel {
                 propertyOrdering: ordering
             )
         }
-        return makeBaseAgentTools().map { tool in
+        var tools = makeBaseAgentTools().map { tool in
             ToolSurfacePolicy.coreToolNames.contains(tool.name) ? withTarget(tool) : tool
         }
+
+        // [unified-shortcuts] Registered only when the user has actually
+        // registered a shortcut. A tool the model can never use successfully is
+        // worse than no tool: it will try, fail, and burn turns explaining
+        // itself. The names live in the <shortcuts> prompt fragment rather than
+        // in an enum here, because that fragment already has to exist to tell
+        // the model what each shortcut does.
+        if !ShortcutRegistryStore.shared.shortcuts.filter(\.enabled).isEmpty {
+            tools.append(AgentToolDefinition(
+                name: "run_shortcut",
+                description: "Run one of the user's registered Apple Shortcuts by name. This briefly switches to the Shortcuts app and back — tell the user before calling it. Only shortcuts listed in <shortcuts> can be run; iOS provides no way to discover others.",
+                parameters: [
+                    "tool_title": AgentToolParam(type: .string, description: "A concise 5-10 word summary of what this tool call does, shown to the user. Use the same language as the user."),
+                    "name": AgentToolParam(type: .string, description: "Exact name of the shortcut, as listed in <shortcuts>."),
+                    "input": AgentToolParam(type: .string, description: "Text to pass as the shortcut's input. Only for shortcuts listed as taking input."),
+                ],
+                required: ["tool_title", "name"],
+                propertyOrdering: ["tool_title", "name", "input"]
+            ))
+        }
+        return tools
     }
 
     private func makeBaseAgentTools() -> [AgentToolDefinition] {

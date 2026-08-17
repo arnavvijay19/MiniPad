@@ -26,6 +26,9 @@ enum SettingsDeepLinkTarget: Equatable {
     /// edit form (where the Authorize button lives).
     case mcpIntegrations
     case mcpServerDetail(serverId: String)
+    /// [unified-agent] On-device models, the remote computer, and registered
+    /// Shortcuts — one screen, reached via minis://settings/agent.
+    case unifiedAgent
 }
 
 @MainActor

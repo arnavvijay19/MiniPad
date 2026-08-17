@@ -45,6 +45,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Task { @MainActor in
             QuickActionRouter.registerShortcutItems()
         }
+        // [unified-local] Memory-warning / background handling for a resident
+        // on-device model. Registered at launch because the escalation ladder
+        // has to be in place before the first model load, not after it.
+        LocalModelLifecycle.shared.start()
+
         logger.info("didFinishLaunching (scene-based; shortcut routing happens in SceneDelegate)")
         // In a scene-based SwiftUI app, `launchOptions[.shortcutItem]`
         // is NOT populated for cold-launch shortcuts — the item is

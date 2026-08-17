@@ -53,6 +53,16 @@ enum DeepLinkRouter {
         let coord = DeepLinkCoordinator.shared
 
         switch host {
+        case ShortcutsBridge.callbackHost:
+            // [unified-shortcuts] Result of a shortcut the agent ran. Resolved
+            // before every other route because it is the only one that must
+            // reach a waiting tool call rather than change what's on screen.
+            if let callback = ShortcutsBridge.parseCallback(url) {
+                ShortcutRunCoordinator.shared.deliver(callback)
+            } else {
+                deepLinkLog.info("shortcut callback ignored — malformed: \(url.absoluteString)")
+            }
+
         case "share":
             // Funnel through ShareCoordinator so any leftover
             // fullScreenCover (gallery / WebApp / camera) is dismissed
@@ -126,6 +136,11 @@ enum DeepLinkRouter {
 
         case "usage", "usage-stats", "usage_stats":
             coord.pendingSettingsTarget = .usage
+
+        case "agent", "unified-agent", "unified_agent", "local-models", "local_models":
+            // [unified-agent] One screen for on-device models, the remote
+            // computer and registered Shortcuts.
+            coord.pendingSettingsTarget = .unifiedAgent
 
         case "skills":
             coord.pendingSettingsTarget = .skills

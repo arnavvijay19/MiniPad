@@ -18,6 +18,13 @@ extension AIChatViewModel {
     /// method, since the resolution depends only on global state
     /// (ProviderConfigStore + LLMProviderFactory).
     static func makeAgentProvider(for entry: ModelEntry) async -> AgentProvider {
+        // [unified-local] On-device models are resolved from the model id, not
+        // from a ProviderInstance: they have no credential, no base URL and no
+        // account, so there is nothing for the instance lookup below to find.
+        // Checked before that lookup so a local model works even if its
+        // synthetic instance is missing.
+        if let provider = localAgentProvider(for: entry) { return provider }
+
         let store = ProviderConfigStore.shared
         guard let instance = store.instance(for: entry.providerInstanceId) else {
             logger.error("No ProviderInstance found for entry \(entry.id)")
@@ -40,10 +47,34 @@ extension AIChatViewModel {
             return OpenAIAgentProvider(provider: LLMProviderFactory.makeXAIProvider(instance: instance, model: entry.model))
         case .kimiCode:
             return OpenAIAgentProvider(provider: LLMProviderFactory.makeKimiProvider(instance: instance, model: entry.model))
+        case .local:
+            // Reached only if a local entry is selected without a repo id —
+            // normal selection is intercepted above by localAgentProvider(for:).
+            logger.error("local provider entry has no model repo; returning placeholder")
+            return AnthropicAgentProvider(provider: AnthropicProvider(apiKey: "", model: entry.model))
         case .unsupported:
             logger.error("\(instance.providerType) has no agent provider; returning placeholder")
             return AnthropicAgentProvider(provider: AnthropicProvider(apiKey: "", model: entry.model))
         }
+    }
+
+    /// An on-device provider for this entry, or nil when it isn't a local model.
+    ///
+    /// The `local/` prefix on the model id is the single source of truth — see
+    /// `LocalModelEntry.appModelID`. Matching on the id rather than on the
+    /// provider type means a local model resolves correctly even before its
+    /// provider instance has been created, and a remote model id containing a
+    /// slash can never be mistaken for one.
+    static func localAgentProvider(for entry: ModelEntry) -> AgentProvider? {
+        guard let repoID = LocalModelEntry.repoID(fromAppModelID: entry.model.id) else { return nil }
+        return LocalAgentProviderFactory.make(
+            repoID: repoID,
+            model: entry.model,
+            // Scoped per model entry rather than per chat: ChatSession's KV
+            // cache belongs to one loaded model, and LocalTranscriptDelta
+            // rebuilds whenever the transcript diverges anyway.
+            conversationID: entry.id
+        )
     }
 
     /// Build an AnthropicAgentProvider for cache keep-alive warmup, reusing the

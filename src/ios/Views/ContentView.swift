@@ -4789,6 +4789,8 @@ private enum SettingsDestination: Hashable {
     // [T-mcp-oauth-deeplink]
     case mcpIntegrations
     case mcpServerDetail(serverId: String)
+    // [unified-agent] On-device models, remote computer, Shortcuts.
+    case unifiedAgent
 }
 
 private struct SettingsSheet: View {
@@ -4897,6 +4899,23 @@ private struct SettingsSheet: View {
                                 .foregroundStyle(.white)
                                 .frame(width: 21, height: 21)
                                 .background(.teal, in: Circle())
+                        }
+                    }
+                    // [unified-agent] On-device models, the remote computer,
+                    // and registered Shortcuts. Sits next to MCP Integrations
+                    // because it is the same kind of thing: connections the
+                    // user configures once and the agent then uses.
+                    NavigationLink {
+                        UnifiedAgentSettingsView()
+                    } label: {
+                        Label {
+                            Text("Agent")
+                        } icon: {
+                            Image(systemName: "cpu")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.white)
+                                .frame(width: 21, height: 21)
+                                .background(.indigo, in: Circle())
                         }
                     }
                     NavigationLink {
@@ -5129,6 +5148,8 @@ private struct SettingsSheet: View {
                     MCPIntegrationsView()
                 case .mcpServerDetail(let serverId):
                     MCPIntegrationsView(initialEditServerId: serverId)
+                case .unifiedAgent:
+                    UnifiedAgentSettingsView()
                 }
             }
             .onAppear {
@@ -5222,6 +5243,8 @@ private struct SettingsSheet: View {
             navPath.append(SettingsDestination.mcpIntegrations)
         case .mcpServerDetail(let id):
             navPath.append(SettingsDestination.mcpServerDetail(serverId: id))
+        case .unifiedAgent:
+            navPath.append(SettingsDestination.unifiedAgent)
         }
         deepLink.pendingSettingsTarget = nil
     }

@@ -502,6 +502,14 @@
 		E502FBD13516BE3CC1101F89 /* UnifiedToolRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */; };
 		6945A222B5B963E8556BEAB4 /* RemoteEndpointStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */; };
 		7D22C12BC6AB719001B2FDAA /* AIChatViewModel+UnifiedCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */; };
+		82530AAC175DB46679F7CBD3 /* RemoteCommandRisk.swift in Sources */ = {isa = PBXBuildFile; fileRef = C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */; };
+		50D201D7E6EBAC1889015CE7 /* RemoteCommandRisk.swift in Sources */ = {isa = PBXBuildFile; fileRef = C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */; };
+		1DB4449F37E778036268B6A0 /* RemoteActionApproval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */; };
+		6D136F01BDB922F0649892E5 /* ShortcutRunCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */; };
+		106200145CCECFCA2759AA40 /* LocalModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B54317CC270E1866C38935 /* LocalModelStore.swift */; };
+		8FF60489B48287315DE5BB82 /* LocalAgentProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */; };
+		A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */; };
+		8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1133,6 +1141,13 @@
 		F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedToolRouter.swift; path = Agent/Unified/UnifiedToolRouter.swift; sourceTree = SOURCE_ROOT; };
 		4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteEndpointStore.swift; path = Agent/Unified/RemoteEndpointStore.swift; sourceTree = SOURCE_ROOT; };
 		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AIChatViewModel+UnifiedCapabilities.swift; path = Agent/Unified/AIChatViewModel+UnifiedCapabilities.swift; sourceTree = SOURCE_ROOT; };
+		C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteCommandRisk.swift; path = Agent/Unified/RemoteCommandRisk.swift; sourceTree = SOURCE_ROOT; };
+		0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteActionApproval.swift; path = Agent/Unified/RemoteActionApproval.swift; sourceTree = SOURCE_ROOT; };
+		E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShortcutRunCoordinator.swift; path = Agent/Unified/Shortcuts/ShortcutRunCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		24B54317CC270E1866C38935 /* LocalModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelStore.swift; path = Providers/Local/LocalModelStore.swift; sourceTree = SOURCE_ROOT; };
+		1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentProviderFactory.swift; path = Providers/Local/LocalAgentProviderFactory.swift; sourceTree = SOURCE_ROOT; };
+		F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelLifecycle.swift; path = Providers/Local/LocalModelLifecycle.swift; sourceTree = SOURCE_ROOT; };
+		454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedAgentSettingsView.swift; path = Views/Settings/UnifiedAgentSettingsView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2483,6 +2498,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50D201D7E6EBAC1889015CE7 /* RemoteCommandRisk.swift in Sources */,
 				7645D0C03E3D9A1997F6E7FD /* UnifiedToolRouting.swift in Sources */,
 				1BCC9A2C43663B179F7DD704 /* AgentProvider.swift in Sources */,
 				414FDB81CDD263D42E3B6534 /* MLXLocalProvider.swift in Sources */,
@@ -2529,6 +2545,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */,
+				A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */,
+				8FF60489B48287315DE5BB82 /* LocalAgentProviderFactory.swift in Sources */,
+				106200145CCECFCA2759AA40 /* LocalModelStore.swift in Sources */,
+				6D136F01BDB922F0649892E5 /* ShortcutRunCoordinator.swift in Sources */,
+				1DB4449F37E778036268B6A0 /* RemoteActionApproval.swift in Sources */,
+				82530AAC175DB46679F7CBD3 /* RemoteCommandRisk.swift in Sources */,
 				7D22C12BC6AB719001B2FDAA /* AIChatViewModel+UnifiedCapabilities.swift in Sources */,
 				6945A222B5B963E8556BEAB4 /* RemoteEndpointStore.swift in Sources */,
 				E502FBD13516BE3CC1101F89 /* UnifiedToolRouter.swift in Sources */,

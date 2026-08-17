@@ -516,6 +516,26 @@ extension AIChatViewModel {
                 await MainActor.run { SkillStore.shared.reload() }
             }
 
+        case "run_shortcut":
+            // [unified-shortcuts] Suspends across an app switch; see
+            // ShortcutRunCoordinator for why the wait is bounded.
+            let shortcutName = (try? JSONSerialization.jsonObject(with: Data(argsJson.utf8)))
+                .flatMap { ($0 as? [String: Any])?["name"] as? String } ?? ""
+            let shortcutInput = (try? JSONSerialization.jsonObject(with: Data(argsJson.utf8)))
+                .flatMap { ($0 as? [String: Any])?["input"] as? String }
+            do {
+                let outcome = try await ShortcutRunCoordinator.shared.run(
+                    name: shortcutName, input: shortcutInput)
+                toolOutput = outcome.modelFacingText
+                if case .success = outcome { toolSuccess = true } else { toolSuccess = false }
+            } catch {
+                toolOutput = "Error: \(error.localizedDescription)"
+                toolSuccess = false
+            }
+            if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                messages[msgIdx].blocks[blockIdx].content = toolOutput
+            }
+
         case "browser_use":
             var browserResult: BrowserActionResult
             if let input = BrowserActionInput.parse(from: argsJson) {

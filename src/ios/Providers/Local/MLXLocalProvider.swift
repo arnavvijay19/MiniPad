@@ -372,6 +372,10 @@ actor LocalModelRuntime {
             )
             container = loaded
             loadedRepoID = repoID
+            await MainActor.run {
+                LocalModelStore.shared.setState(.loaded, repoID: repoID)
+                LocalModelLifecycle.shared.noteModelLoaded()
+            }
             return loaded
         } catch {
             unload()
@@ -391,6 +395,16 @@ actor LocalModelRuntime {
         container = nil
         loadedRepoID = nil
         // `GPU.clearCache()` is deprecated; renamed to Memory.clearCache.
+        MLX.Memory.clearCache()
+    }
+
+    /// Drop MLX's buffer cache while keeping the model resident.
+    ///
+    /// The cheap first response to a memory warning: the allocator holds freed
+    /// buffers that the OS still counts as this process's footprint, and
+    /// releasing them is often enough to avoid a jetsam without paying a
+    /// 20-second reload.
+    func clearBufferCache() {
         MLX.Memory.clearCache()
     }
 

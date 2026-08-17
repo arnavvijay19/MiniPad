@@ -34,15 +34,20 @@ SENTINEL = re.compile(r'case\s+\.unsupported\s*(?::|$)')
 
 
 def switch_blocks(lines, index):
-    """Walk backwards to the enclosing `switch`, then forwards to its end.
+    """Return the body of the `switch` that owns the `case` at `index`.
 
-    Brace counting from the switch line is enough here: the switch bodies in
-    this codebase are well-formed and none contains a brace inside a string
-    literal on the same line as a `case`.
+    A `case` belongs to the nearest preceding `switch` at the SAME indentation —
+    that is the convention Swift and this codebase use. Matching merely the
+    nearest `switch` at any indent is wrong: a nested `switch` inside an earlier
+    case (e.g. `switch instance.credentialType` inside `case .kimiCode`) would
+    steal the match and report a false failure.
     """
+    indent = len(lines[index]) - len(lines[index].lstrip())
     start = None
     for i in range(index, -1, -1):
-        if re.search(r'\bswitch\b.*\{', lines[i]):
+        if not re.search(r'\bswitch\b.*\{', lines[i]):
+            continue
+        if len(lines[i]) - len(lines[i].lstrip()) == indent:
             start = i
             break
     if start is None:
