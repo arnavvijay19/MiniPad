@@ -237,6 +237,9 @@ extension AIChatViewModel {
                 provider.appendV1Suffix = kimiAppendV1
                 return provider
             }
+        case .local:
+            // See LLMProviderFactory: the agent path handles local models.
+            throw LLMProviderError.noCredentials
         case .unsupported:
             throw LLMProviderError.noCredentials
         }

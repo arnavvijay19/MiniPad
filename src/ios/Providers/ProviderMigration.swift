@@ -88,6 +88,9 @@ enum ProviderMigration {
             case .kimiCode:
                 // Kimi is a new provider; no legacy singleton tokens to migrate.
                 break
+            case .local:
+                // Nothing to migrate: local models have no credentials.
+                break
             case .unsupported:
                 break
             }

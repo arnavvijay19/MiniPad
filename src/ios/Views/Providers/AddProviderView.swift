@@ -804,6 +804,7 @@ struct AddProviderView: View {
             case .openAIResponses: break // API key only, no OAuth
             case .xAI: try await XAIOAuthManager.shared.login(instanceId: pendingInstanceId)
             case .kimiCode: break // device-code flow runs in KimiDeviceLoginSheet, not here
+            case .local: break // nothing to sign in to
             case .unsupported: break // free / unsupported — no OAuth
             }
             oauthAuthTime = Date()
@@ -835,6 +836,8 @@ struct AddProviderView: View {
             token = ProviderKeychainHelper.loadOAuthToken(instanceId: pendingInstanceId, as: XAITokenStorage.self)?.accessToken
         case .kimiCode:
             token = ProviderKeychainHelper.loadOAuthToken(instanceId: pendingInstanceId, as: KimiTokenStorage.self)?.accessToken
+        case .local:
+            token = nil // runs in-process; no credential
         case .unsupported:
             token = nil // free / unsupported — no token
         }
@@ -913,6 +916,7 @@ struct AddProviderView: View {
         case .openAIResponses: return String(localized: "Sign In") // Not reachable — API key only
         case .xAI: return String(localized: "Sign in with xAI")
         case .kimiCode: return String(localized: "Sign in with Kimi Code")
+        case .local: return ""
         case .unsupported: return String(localized: "Sign In")
         }
     }
@@ -928,6 +932,7 @@ struct AddProviderView: View {
         case .openAIResponses: return "sk-..."
         case .xAI: return "xai-..."
         case .kimiCode: return "" // OAuth only
+        case .local: return ""
         case .unsupported: return ""
         }
     }
@@ -942,6 +947,7 @@ struct AddProviderView: View {
         case .openAIResponses: return "Responses API"
         case .xAI: return "xAI (Grok)"
         case .kimiCode: return "Kimi Code"
+        case .local: return "On-device"
         case .unsupported: return String(localized: "Unsupported")
         }
     }
@@ -1023,6 +1029,9 @@ struct AddProviderView: View {
         case .kimiCode:
             Image(systemName: "moon.stars")
                 .foregroundStyle(.indigo)
+        case .local:
+            Image(systemName: "cpu")
+                .foregroundStyle(.teal)
         case .unsupported:
             Image(systemName: "questionmark.circle")
                 .foregroundStyle(.gray)
@@ -1039,6 +1048,7 @@ struct AddProviderView: View {
         case .openAIResponses: return .mint
         case .xAI: return .gray
         case .kimiCode: return .indigo
+        case .local: return .teal
         case .unsupported: return .gray
         }
     }

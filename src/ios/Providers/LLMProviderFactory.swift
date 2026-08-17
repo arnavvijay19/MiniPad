@@ -9,6 +9,7 @@ enum LLMProviderFactory {
         case noInstance
         case noCredentials
         case voiceOnlyProvider
+        case localCompletionUnavailable
     }
 
     /// Create an LLMProvider for the given entry, looking up its ProviderInstance and credentials.
@@ -34,6 +35,14 @@ enum LLMProviderFactory {
             return makeXAIProvider(instance: instance, model: entry.model)
         case .kimiCode:
             return makeKimiProvider(instance: instance, model: entry.model)
+        case .local:
+            // Local models are served by MLXLocalProvider through the agent
+            // path (AIChatViewModel.makeAgentProvider), which intercepts them
+            // before this switch. This simple-completion path has no local
+            // implementation, so sub-tasks that use it (title generation) fall
+            // back to their default rather than silently reaching for a cloud
+            // model the user may have disabled on purpose.
+            throw FactoryError.localCompletionUnavailable
         case .unsupported:
             throw FactoryError.voiceOnlyProvider
         }

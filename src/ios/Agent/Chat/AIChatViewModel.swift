@@ -1052,6 +1052,8 @@ final class AIChatViewModel: ObservableObject, SpeechControlling {
                 level = thinkLvl.displayName
             case .openAI, .openAIResponses, .openRouter, .xAI, .kimiCode:
                 level = OpenAIAgentProvider.reasoningEffort(for: model, level: thinkLvl) ?? "—"
+            case .local:
+                level = thinkLvl.displayName
             case .unsupported:
                 level = "—"
             case .antigravity:

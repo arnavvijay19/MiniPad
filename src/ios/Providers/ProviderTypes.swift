@@ -19,6 +19,14 @@ enum ProviderType: String, Codable, CaseIterable, Hashable, Sendable {
     /// OpenAI-compatible coding upstream — flows through OpenAIProvider with
     /// custom base URL + OAuth bearer, like xAI. See the Kimi Code OAuth design notes.
     case kimiCode
+    /// On-device inference. No network, no credentials, no base URL.
+    ///
+    /// A real case rather than a special-cased string because every switch over
+    /// `ProviderType` in the app is exhaustive, and the compiler enumerating
+    /// the sites that need a local branch is exactly the property that makes
+    /// this safe to add. The instance carries no credential; the model itself
+    /// is selected from `LocalModelStore`.
+    case local
     /// Sentinel for a provider type this app build doesn't recognize — e.g. a
     /// NEWER build synced an instance whose `provider_type` string isn't a known
     /// case here. We DECODE to this instead of throwing/dropping, so the instance
@@ -43,6 +51,7 @@ enum ProviderType: String, Codable, CaseIterable, Hashable, Sendable {
         case .openAIResponses: return "Responses API (v3)"
         case .xAI: return "xAI (Grok)"
         case .kimiCode: return "Kimi Code"
+        case .local: return "On-device"
         case .unsupported: return "Unsupported"
         }
     }
@@ -58,6 +67,9 @@ enum ProviderType: String, Codable, CaseIterable, Hashable, Sendable {
         case .openAIResponses: return LLMModel.allOpenAI
         case .xAI: return XAIModelsAPI.allModels
         case .kimiCode: return KimiModelsAPI.allModels
+        // Local models are enumerated by LocalModelStore (which repos are
+        // downloaded), not by a static catalog.
+        case .local: return []
         case .unsupported: return []
         }
     }
@@ -82,6 +94,8 @@ enum ProviderType: String, Codable, CaseIterable, Hashable, Sendable {
             return String(localized: "Sign in with your Kimi Code / Coding Plan subscription")
         case .antigravity:
             return String(localized: "\(builtInModels.count) built-in models")
+        case .local:
+            return String(localized: "Run a model on this device, with no network")
         case .unsupported:
             return String(localized: "\(builtInModels.count) built-in models")
         }
@@ -98,6 +112,9 @@ enum ProviderType: String, Codable, CaseIterable, Hashable, Sendable {
         case .openAIResponses: return .vision
         case .xAI: return .vision
         case .kimiCode: return .vision
+        // The seed catalog is text-only; a vision-capable local model sets
+        // its own modality override on the entry.
+        case .local: return .textOnly
         case .unsupported: return .vision
         }
     }

@@ -41,6 +41,7 @@ enum DebugRPCProvider {
             case .openAIResponses: supportedCreds = ["apiKey"]
             case .xAI: supportedCreds = ["apiKey", "oauth"]
             case .kimiCode: supportedCreds = ["oauth"]
+            case .local: supportedCreds = []
             case .unsupported: supportedCreds = []
             }
             let customBaseSupported: Bool

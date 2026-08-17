@@ -40,7 +40,9 @@ enum LocalInferenceAvailability {
 
     /// True when the MLX runtime is linked into this build.
     static var isCompiledIn: Bool {
-        #if canImport(MLXLLM)
+        // Must match the gate on MLXLocalProvider exactly, or settings would
+        // advertise on-device inference that isn't actually compiled in.
+        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
         return true
         #else
         return false
@@ -64,7 +66,7 @@ enum LocalInferenceAvailability {
     /// Sentence for the settings row when local inference can't be used.
     static var unavailableReason: String? {
         if !isCompiledIn {
-            return "This build was compiled without the on-device inference runtime. See BUILDING.md → On-device models."
+            return "This build was compiled without the on-device inference runtime (MLXLLM + MLXHuggingFace). See BUILDING.md → On-device models."
         }
         if !isSupportedHardware {
             return "On-device models need Apple silicon. The simulator can't run them; use a physical device."
@@ -141,10 +143,17 @@ struct LocalGenerationSettings: Codable, Hashable, Sendable {
 enum LocalToolSchemaBuilder {
 
     /// One tool, as a JSON-schema function object.
-    static func schema(for tool: AgentToolDefinition) -> [String: Any] {
-        var properties: [String: Any] = [:]
+    ///
+    /// The element type is `[String: any Sendable]`, not `[String: Any]`,
+    /// because that is exactly `MLXLMCommon.ToolSpec` — and `[String: Any]`
+    /// does **not** convert to it. Building the dictionaries as `Any` and
+    /// casting at the call site fails to compile, which is how this was caught:
+    /// see scripts/typecheck_mlx_adapter.sh, which typechecks this mapping
+    /// against the real upstream type definitions.
+    static func schema(for tool: AgentToolDefinition) -> [String: any Sendable] {
+        var properties: [String: any Sendable] = [:]
         for (name, param) in tool.parameters {
-            var entry: [String: Any] = [
+            var entry: [String: any Sendable] = [
                 "type": param.type.rawValue,
                 "description": param.description,
             ]
@@ -160,12 +169,12 @@ enum LocalToolSchemaBuilder {
                     "type": "object",
                     "properties": properties,
                     "required": tool.required,
-                ] as [String: Any],
-            ] as [String: Any],
+                ] as [String: any Sendable],
+            ] as [String: any Sendable],
         ]
     }
 
-    static func schemas(for tools: [AgentToolDefinition]) -> [[String: Any]] {
+    static func schemas(for tools: [AgentToolDefinition]) -> [[String: any Sendable]] {
         tools.map(schema(for:))
     }
 
@@ -297,11 +306,19 @@ enum LocalTranscriptRenderer {
 
 // MARK: - The provider
 
-#if canImport(MLXLLM)
+#if canImport(MLXLLM) && canImport(MLXHuggingFace)
 
 import MLX
 import MLXLLM
 import MLXLMCommon
+// The Hugging Face download path is a macro, not a function: MLXLMCommon's
+// `loadModelContainer` requires an explicit `Downloader` and `TokenizerLoader`,
+// and `#huggingFaceLoadModelContainer` is what supplies the default pair.
+// Expanding it references `HuggingFace.HubClient` and `Tokenizers`, so those
+// modules must be linked too — see BUILDING.md.
+import MLXHuggingFace
+import HuggingFace
+import Tokenizers
 
 /// Holds one loaded model and serialises access to it.
 ///
@@ -340,14 +357,19 @@ actor LocalModelRuntime {
         // Cap MLX's buffer cache. Without this the allocator keeps freed
         // buffers around, which on a memory-limited device reads to the OS as
         // sustained high usage and gets the app jetsammed during an unrelated
-        // spike.
-        MLX.GPU.set(cacheLimit: cacheLimitBytes)
+        // spike. `GPU.set(cacheLimit:)` is deprecated in mlx-swift 0.31 in
+        // favour of this property.
+        MLX.Memory.cacheLimit = cacheLimitBytes
 
         do {
             let configuration = ModelConfiguration(id: repoID)
-            let loaded = try await LLMModelFactory.shared.loadContainer(configuration: configuration) {
-                progress?($0.fractionCompleted)
-            }
+            // The macro supplies the default Hub downloader and tokenizer
+            // loader. There is no `loadContainer(configuration:)` convenience —
+            // every non-macro entry point requires both explicitly.
+            let loaded = try await #huggingFaceLoadModelContainer(
+                configuration: configuration,
+                progressHandler: { p in progress?(p.fractionCompleted) }
+            )
             container = loaded
             loadedRepoID = repoID
             return loaded
@@ -368,7 +390,8 @@ actor LocalModelRuntime {
         sessionStates.removeAll()
         container = nil
         loadedRepoID = nil
-        MLX.GPU.clearCache()
+        // `GPU.clearCache()` is deprecated; renamed to Memory.clearCache.
+        MLX.Memory.clearCache()
     }
 
     /// Reset one conversation's session without unloading the model. Used when
@@ -436,7 +459,9 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
         let fingerprints = LocalTranscriptRenderer.fingerprints(rendered)
         let systemHash = TranscriptFingerprint.stableHash(systemPrompt ?? "")
         let toolsHash = LocalToolSchemaBuilder.hash(tools)
-        let toolSpecs: [ToolSpec] = LocalToolSchemaBuilder.schemas(for: tools).map { $0 as ToolSpec }
+        // `schemas(for:)` already returns [[String: any Sendable]], which IS
+        // [ToolSpec] — no cast, because the cast is what doesn't compile.
+        let toolSpecs: [ToolSpec] = LocalToolSchemaBuilder.schemas(for: tools)
 
         let runtime = LocalModelRuntime.shared
         let container = try await runtime.load(repoID: repoID, cacheLimitBytes: cacheLimitBytes)
