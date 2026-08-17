@@ -6,7 +6,53 @@ extension AIChatViewModel {
 
     // MARK: - Tool Definitions (Canonical)
 
+    /// The `target` parameter added to the execution/file tools when a remote
+    /// computer is configured.
+    ///
+    /// One optional enum-valued parameter instead of a parallel family of
+    /// Windows tools. Measured at 176 Qwen 3.5 tokens across all four tools,
+    /// against roughly 1200 for a second tool family — and the model learns one
+    /// vocabulary rather than two for the same concept.
+    ///
+    /// Injected only when an endpoint actually exists, so a user with no PC
+    /// configured pays nothing. Absent or unrecognised resolves to the iPad
+    /// (`ExecutionTarget.parse`), which is what keeps every persisted tool call
+    /// and every model that has never heard of this parameter working.
+    private static let executionTargetParam = AgentToolParam(
+        type: .string,
+        description: "Which machine to act on: 'ipad' (default, the on-device Linux sandbox) or 'windows' (the user's PC). Omit for the iPad.",
+        enumValues: ExecutionTarget.allCases.map(\.wireValue)
+    )
+
     func makeAgentTools() -> [AgentToolDefinition] {
+        let remoteConfigured = RemoteEndpointStore.shared.hasActiveRemote
+
+        /// Add `target` to a tool, preserving its parameter ordering so the
+        /// providers that use `propertyOrdering` (Gemini) keep emitting
+        /// arguments in the order the schema declares.
+        func withTarget(_ tool: AgentToolDefinition) -> AgentToolDefinition {
+            guard remoteConfigured else { return tool }
+            var parameters = tool.parameters
+            parameters["target"] = Self.executionTargetParam
+            var ordering = tool.propertyOrdering
+            if var existing = ordering, !existing.contains("target") {
+                // After tool_title, before the operands: the model decides
+                // where before it decides what.
+                existing.insert("target", at: min(1, existing.count))
+                ordering = existing
+            }
+            return AgentToolDefinition(
+                name: tool.name, description: tool.description,
+                parameters: parameters, required: tool.required,
+                propertyOrdering: ordering
+            )
+        }
+        return makeBaseAgentTools().map { tool in
+            ToolSurfacePolicy.coreToolNames.contains(tool.name) ? withTarget(tool) : tool
+        }
+    }
+
+    private func makeBaseAgentTools() -> [AgentToolDefinition] {
         // [T-memory-toggle-gates-injection-and-tools-ios] memory_get and
         // memory_write are conditionally registered. When the per-session
         // toggle is off, drop both tool definitions so the LLM never sees

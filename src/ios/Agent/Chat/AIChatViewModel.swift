@@ -4287,6 +4287,12 @@ final class AIChatViewModel: ObservableObject, SpeechControlling {
             userSystemPrompt += "\n\n" + mcpFragment
         }
 
+        // [unified-exec] Two-machine addressing and registered Shortcuts.
+        // Both fragments are conditional: a user with no remote computer and
+        // no registered shortcuts pays zero tokens for either. Measured at 147
+        // and ~104 Qwen tokens respectively when present.
+        userSystemPrompt += Self.unifiedCapabilityFragments()
+
         // [T-memory-toggle-gates-injection-and-tools-ios] Memory injection
         // (GLOBAL.md + recent daily logs) is gated by the per-session
         // memoryEnabled toggle. SOUL.md (identity / persona) is rendered
@@ -4652,6 +4658,10 @@ final class AIChatViewModel: ObservableObject, SpeechControlling {
                    let mcpFragment = MCPStore.shared.systemPromptSnippet(for: sid) {
                     userSystemPrompt += "\n\n" + mcpFragment
                 }
+                // [unified-exec] Must mirror the primary assembly above, or a
+                // fallback turn loses the ability to address the second machine
+                // mid-conversation.
+                userSystemPrompt += Self.unifiedCapabilityFragments()
                 // [T-memory-toggle-gates-injection-and-tools-ios] Mirror
                 // the gate from the first injection site — fallback to a
                 // new provider must respect the per-session memoryEnabled

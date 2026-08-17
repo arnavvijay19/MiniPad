@@ -497,6 +497,11 @@
 		915FBF02C7D4B288D96020CF /* MLXLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */; };
 		414FDB81CDD263D42E3B6534 /* MLXLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */; };
 		1BCC9A2C43663B179F7DD704 /* AgentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59000011 /* AgentProvider.swift */; };
+		9F19ADBBCB04BF9860991F77 /* UnifiedToolRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */; };
+		7645D0C03E3D9A1997F6E7FD /* UnifiedToolRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */; };
+		E502FBD13516BE3CC1101F89 /* UnifiedToolRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */; };
+		6945A222B5B963E8556BEAB4 /* RemoteEndpointStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */; };
+		7D22C12BC6AB719001B2FDAA /* AIChatViewModel+UnifiedCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1124,6 +1129,10 @@
 		9D17264DBC3C284AF2D4C716 /* LocalToolCallSalvage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalToolCallSalvage.swift; path = Providers/Local/LocalToolCallSalvage.swift; sourceTree = SOURCE_ROOT; };
 		5B73686B8EE1C3D683D402BB /* LocalTranscriptDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalTranscriptDelta.swift; path = Providers/Local/LocalTranscriptDelta.swift; sourceTree = SOURCE_ROOT; };
 		7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MLXLocalProvider.swift; path = Providers/Local/MLXLocalProvider.swift; sourceTree = SOURCE_ROOT; };
+		CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedToolRouting.swift; path = Agent/Unified/UnifiedToolRouting.swift; sourceTree = SOURCE_ROOT; };
+		F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedToolRouter.swift; path = Agent/Unified/UnifiedToolRouter.swift; sourceTree = SOURCE_ROOT; };
+		4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteEndpointStore.swift; path = Agent/Unified/RemoteEndpointStore.swift; sourceTree = SOURCE_ROOT; };
+		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AIChatViewModel+UnifiedCapabilities.swift; path = Agent/Unified/AIChatViewModel+UnifiedCapabilities.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2474,6 +2483,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7645D0C03E3D9A1997F6E7FD /* UnifiedToolRouting.swift in Sources */,
 				1BCC9A2C43663B179F7DD704 /* AgentProvider.swift in Sources */,
 				414FDB81CDD263D42E3B6534 /* MLXLocalProvider.swift in Sources */,
 				5CCD27E91F910229D4E62A56 /* LocalTranscriptDelta.swift in Sources */,
@@ -2519,6 +2529,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D22C12BC6AB719001B2FDAA /* AIChatViewModel+UnifiedCapabilities.swift in Sources */,
+				6945A222B5B963E8556BEAB4 /* RemoteEndpointStore.swift in Sources */,
+				E502FBD13516BE3CC1101F89 /* UnifiedToolRouter.swift in Sources */,
+				9F19ADBBCB04BF9860991F77 /* UnifiedToolRouting.swift in Sources */,
 				915FBF02C7D4B288D96020CF /* MLXLocalProvider.swift in Sources */,
 				78A3473A6A1B29374225A9CE /* LocalTranscriptDelta.swift in Sources */,
 				2C4FCA31BA1CF47EA8094FE2 /* LocalToolCallSalvage.swift in Sources */,

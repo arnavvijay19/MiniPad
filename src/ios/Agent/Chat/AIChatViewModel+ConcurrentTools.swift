@@ -228,6 +228,32 @@ extension AIChatViewModel {
                 break
             }
 
+            // [unified-exec] Remote target? Run it there and stop. Returns nil
+            // immediately for the common local case, leaving everything below
+            // untouched.
+            if let remote = await UnifiedToolRouter.shared.routeIfRemote(
+                toolName: tu.name, argsJSON: argsJson,
+                onOutput: { [weak self] chunk in
+                    Task { @MainActor in
+                        guard let self, msgIdx < self.messages.count,
+                              blockIdx < self.messages[msgIdx].blocks.count else { return }
+                        let current = self.messages[msgIdx].blocks[blockIdx].content
+                        // Mirrors the local streaming path below: the first
+                        // real output replaces the placeholder rather than
+                        // appending to it.
+                        self.messages[msgIdx].blocks[blockIdx].content =
+                            current.hasSuffix("Executing...") ? chunk : current + chunk
+                    }
+                }
+            ) {
+                toolOutput = remote.output
+                toolSuccess = remote.success
+                if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                    messages[msgIdx].blocks[blockIdx].content = remote.output
+                }
+                break
+            }
+
             // Offload permission check.
             ctLogger.info("[OffloadPerm] shell command: \(command)")
             if let offloadCmd = OffloadPermissionManager.extractOffloadCommand(from: command) {
@@ -398,6 +424,17 @@ extension AIChatViewModel {
             toolOutput = redactedOut
 
         case "file_read":
+            // [unified-exec] Remote target? Run it there and stop.
+            if let remote = await UnifiedToolRouter.shared.routeIfRemote(
+                toolName: tu.name, argsJSON: argsJson
+            ) {
+                toolOutput = remote.output
+                toolSuccess = remote.success
+                if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                    messages[msgIdx].blocks[blockIdx].content = remote.output
+                }
+                break
+            }
             let fileResult: FileToolResult
             do {
                 fileResult = try await executeFileRead(from: argsJson)
@@ -418,6 +455,17 @@ extension AIChatViewModel {
             }
 
         case "file_write":
+            // [unified-exec] Remote target? Run it there and stop.
+            if let remote = await UnifiedToolRouter.shared.routeIfRemote(
+                toolName: tu.name, argsJSON: argsJson
+            ) {
+                toolOutput = remote.output
+                toolSuccess = remote.success
+                if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                    messages[msgIdx].blocks[blockIdx].content = remote.output
+                }
+                break
+            }
             let fileResult: FileToolResult
             do {
                 fileResult = try await executeFileWrite(from: argsJson)
@@ -438,6 +486,17 @@ extension AIChatViewModel {
             }
 
         case "file_edit":
+            // [unified-exec] Remote target? Run it there and stop.
+            if let remote = await UnifiedToolRouter.shared.routeIfRemote(
+                toolName: tu.name, argsJSON: argsJson
+            ) {
+                toolOutput = remote.output
+                toolSuccess = remote.success
+                if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                    messages[msgIdx].blocks[blockIdx].content = remote.output
+                }
+                break
+            }
             let fileResult: FileToolResult
             do {
                 fileResult = try await executeFileEdit(from: argsJson)
