@@ -1,0 +1,586 @@
+//
+//  MLXLocalProvider.swift
+//  MinisApp
+//
+//  In-process local inference, as an ordinary Minis AgentProvider.
+//
+//  WHY IT IS COMPILE-GATED
+//
+//  The whole file is inside `#if canImport(MLXLLM)`. Without the
+//  `mlx-swift-lm` package added to the project, this compiles to a stub that
+//  reports local inference as unavailable, and the rest of the app is
+//  unaffected — no build break, no dead references, nothing to undo. Adding
+//  the package (see docs/design/unified-agent/ARCHITECTURE.md) switches the
+//  real implementation on with no other change.
+//
+//  That gating is deliberate and not merely cautious. MLX pulls in Metal
+//  kernels and a large dependency tree, it raises the deployment floor, and it
+//  is only useful on Apple silicon. A fork that hard-wires it makes every
+//  future upstream merge harder for a capability not every user wants.
+//
+//  WHAT IT DELIBERATELY DOES NOT DO
+//
+//  It does not implement inference. Writing a transformer runtime by hand would
+//  be slower, more fragile and less correct than Apple's, which is maintained
+//  against the models we care about. This file is an adapter: Minis' agent
+//  vocabulary in, MLX's in-process generation out.
+//
+//  Reference: ml-explore/mlx-swift-lm (MIT), products MLXLLM / MLXLMCommon.
+//
+
+import Foundation
+
+// MARK: - Availability (always compiled)
+
+/// Whether this build can run models on-device, and why not when it can't.
+///
+/// Compiled unconditionally so settings, the model picker and the provider
+/// factory can ask without themselves being gated.
+enum LocalInferenceAvailability {
+
+    /// True when the MLX runtime is linked into this build.
+    static var isCompiledIn: Bool {
+        #if canImport(MLXLLM)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// True when the hardware can run it. MLX needs Apple silicon and Metal;
+    /// the simulator has neither in a usable form.
+    static var isSupportedHardware: Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #elseif arch(arm64)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    static var isAvailable: Bool { isCompiledIn && isSupportedHardware }
+
+    /// Sentence for the settings row when local inference can't be used.
+    static var unavailableReason: String? {
+        if !isCompiledIn {
+            return "This build was compiled without the on-device inference runtime. See BUILDING.md → On-device models."
+        }
+        if !isSupportedHardware {
+            return "On-device models need Apple silicon. The simulator can't run them; use a physical device."
+        }
+        return nil
+    }
+}
+
+/// Errors the local provider surfaces, worded for both the user and the model.
+enum LocalInferenceError: Error, LocalizedError {
+    case runtimeUnavailable(String)
+    case modelNotDownloaded(String)
+    case incompatibleModel(String)
+    case loadFailed(String)
+    case outOfMemory(String)
+    case cancelled
+
+    var errorDescription: String? {
+        switch self {
+        case .runtimeUnavailable(let detail): return detail
+        case .modelNotDownloaded(let repo): return "\(repo) hasn't been downloaded yet."
+        case .incompatibleModel(let detail): return detail
+        case .loadFailed(let detail): return "Couldn't load the model: \(detail)"
+        case .outOfMemory(let detail):
+            return "Ran out of memory while running the model. \(detail)"
+        case .cancelled: return "Cancelled."
+        }
+    }
+}
+
+// MARK: - Generation settings
+
+/// User-facing generation parameters, independent of MLX so settings and
+/// persistence don't need the package either.
+struct LocalGenerationSettings: Codable, Hashable, Sendable {
+    var temperature: Float
+    var topP: Float
+    var maxTokens: Int
+    /// KV-cache ceiling in tokens. Beyond this MLX switches to a rotating
+    /// cache, which bounds memory at the cost of forgetting the oldest tokens.
+    /// Bounding it matters far more on a device than on a server: an unbounded
+    /// cache on a long agent run is the most likely way to get OOM-killed.
+    var maxKVSize: Int?
+    /// Quantize the KV cache to this many bits once generation passes
+    /// `quantizedKVStart` tokens. Roughly halves cache memory at 8 bits.
+    var kvBits: Int?
+    var quantizedKVStart: Int
+
+    static let `default` = LocalGenerationSettings(
+        temperature: 0.7, topP: 0.95, maxTokens: 2048,
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+    )
+
+    /// Lower temperature for agent work.
+    ///
+    /// Tool-calling wants the model to reproduce a schema exactly. Sampling
+    /// diversity that reads as "creative" in prose reads as a malformed JSON
+    /// argument in a tool call, and a 4B model has much less headroom for that
+    /// than a frontier model does.
+    static let agentic = LocalGenerationSettings(
+        temperature: 0.3, topP: 0.9, maxTokens: 2048,
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+    )
+}
+
+// MARK: - Tool schema conversion (always compiled, testable)
+
+/// Converts Minis' canonical tool definitions into the OpenAI-style function
+/// schema dictionaries MLX renders into the chat template.
+///
+/// Compiled unconditionally so the schema shape — which is what the local model
+/// actually sees, and therefore what the context budget is spent on — can be
+/// tested without the package.
+enum LocalToolSchemaBuilder {
+
+    /// One tool, as a JSON-schema function object.
+    static func schema(for tool: AgentToolDefinition) -> [String: Any] {
+        var properties: [String: Any] = [:]
+        for (name, param) in tool.parameters {
+            var entry: [String: Any] = [
+                "type": param.type.rawValue,
+                "description": param.description,
+            ]
+            if let values = param.enumValues { entry["enum"] = values }
+            properties[name] = entry
+        }
+        return [
+            "type": "function",
+            "function": [
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": [
+                    "type": "object",
+                    "properties": properties,
+                    "required": tool.required,
+                ] as [String: Any],
+            ] as [String: Any],
+        ]
+    }
+
+    static func schemas(for tools: [AgentToolDefinition]) -> [[String: Any]] {
+        tools.map(schema(for:))
+    }
+
+    /// Stable hash of a tool set, for the session-reuse decision. Tool schemas
+    /// are rendered into the prompt prefix, so a change invalidates the cache.
+    static func hash(_ tools: [AgentToolDefinition]) -> Int {
+        // Sorted by name so a reordering — which the chat template renders
+        // identically in practice for our templates — doesn't force a needless
+        // rebuild, while any real change to a name, description, parameter or
+        // required list does.
+        let canonical = tools
+            .sorted { $0.name < $1.name }
+            .map { tool -> String in
+                let params = tool.parameters
+                    .sorted { $0.key < $1.key }
+                    .map { "\($0.key):\($0.value.type.rawValue):\($0.value.description)" }
+                    .joined(separator: "|")
+                return "\(tool.name)|\(tool.description)|\(params)|\(tool.required.sorted().joined(separator: ","))"
+            }
+            .joined(separator: "\n")
+        return TranscriptFingerprint.stableHash(canonical)
+    }
+}
+
+// MARK: - Transcript rendering (always compiled, testable)
+
+/// Flattens Minis' `AgentMessage` parts into the plain text + tool metadata
+/// that a local chat template consumes.
+///
+/// Local models get no images (the seed catalog is text-only), so an image part
+/// becomes a short, honest placeholder rather than being silently dropped — a
+/// dropped attachment makes the model confidently answer about a picture it
+/// never saw.
+enum LocalTranscriptRenderer {
+
+    struct RenderedMessage: Equatable, Sendable {
+        enum Kind: Equatable, Sendable {
+            case user
+            case assistant(toolCalls: [(id: String, name: String, argumentsJSON: String)])
+            case toolResult(id: String, name: String)
+
+            static func == (lhs: Kind, rhs: Kind) -> Bool {
+                switch (lhs, rhs) {
+                case (.user, .user): return true
+                case (.assistant(let a), .assistant(let b)):
+                    return a.map(\.id) == b.map(\.id) && a.map(\.argumentsJSON) == b.map(\.argumentsJSON)
+                case (.toolResult(let ai, let an), .toolResult(let bi, let bn)):
+                    return ai == bi && an == bn
+                default: return false
+                }
+            }
+        }
+        let kind: Kind
+        let text: String
+    }
+
+    /// Split an agent transcript into template-ready messages.
+    ///
+    /// A tool result becomes its own message rather than being folded into the
+    /// user turn, because every chat template we target renders the `tool` role
+    /// distinctly, and collapsing it teaches the model that tool output is
+    /// something the user said.
+    static func render(_ messages: [AgentMessage]) -> [RenderedMessage] {
+        var out: [RenderedMessage] = []
+        for message in messages {
+            var text = ""
+            var toolCalls: [(id: String, name: String, argumentsJSON: String)] = []
+            var pendingResults: [RenderedMessage] = []
+
+            for part in message.parts {
+                switch part {
+                case .text(let value):
+                    if !value.isEmpty {
+                        if !text.isEmpty { text += "\n" }
+                        text += value
+                    }
+                case .toolUse(let id, let name, let input):
+                    let json = (try? JSONSerialization.data(withJSONObject: input, options: [.sortedKeys]))
+                        .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+                    toolCalls.append((id: sanitizeToolId(id), name: name, argumentsJSON: json))
+                case .toolResult(let id, let name, let content, let isError, _, _, _, _):
+                    pendingResults.append(RenderedMessage(
+                        kind: .toolResult(id: sanitizeToolId(id), name: name),
+                        text: isError ? "Error: \(content)" : content
+                    ))
+                case .imageData:
+                    if !text.isEmpty { text += "\n" }
+                    text += "[an image was attached; this on-device model cannot see images]"
+                }
+            }
+
+            switch message.role {
+            case .user:
+                // Tool results ride on user messages in Minis' representation;
+                // they must be emitted as `tool` messages, and before any
+                // genuine user text in the same message.
+                out.append(contentsOf: pendingResults)
+                if !text.isEmpty {
+                    out.append(RenderedMessage(kind: .user, text: text))
+                }
+            case .assistant:
+                // An assistant turn that is only tool calls still has to exist
+                // in the transcript, or the tool results that follow have
+                // nothing to answer.
+                if !text.isEmpty || !toolCalls.isEmpty {
+                    out.append(RenderedMessage(kind: .assistant(toolCalls: toolCalls), text: text))
+                }
+                out.append(contentsOf: pendingResults)
+            }
+        }
+        return out
+    }
+
+    /// Fingerprints for the session-reuse decision.
+    static func fingerprints(_ rendered: [RenderedMessage]) -> [TranscriptFingerprint] {
+        rendered.map { message in
+            switch message.kind {
+            case .user:
+                return TranscriptFingerprint(role: "user", content: message.text)
+            case .assistant(let calls):
+                let callText = calls.map { "\($0.name)(\($0.argumentsJSON))" }.joined(separator: ";")
+                return TranscriptFingerprint(role: "assistant", content: message.text + "\u{1}" + callText)
+            case .toolResult(let id, let name):
+                return TranscriptFingerprint(role: "tool", content: "\(id)\u{1}\(name)\u{1}\(message.text)")
+            }
+        }
+    }
+}
+
+// MARK: - The provider
+
+#if canImport(MLXLLM)
+
+import MLX
+import MLXLLM
+import MLXLMCommon
+
+/// Holds one loaded model and serialises access to it.
+///
+/// An actor because a single `ModelContainer` cannot service two generations
+/// concurrently — and unlike a remote provider, where concurrent requests are
+/// simply more HTTP, here they would contend for the same GPU buffers and the
+/// same KV cache. The agent loop's concurrent tool dispatch means this is a
+/// real path, not a hypothetical one.
+actor LocalModelRuntime {
+
+    static let shared = LocalModelRuntime()
+
+    private var container: ModelContainer?
+    private var loadedRepoID: String?
+    private var sessions: [String: ChatSession] = [:]
+    private var sessionStates: [String: LocalSessionState] = [:]
+
+    private init() {}
+
+    var currentRepoID: String? { loadedRepoID }
+    var isLoaded: Bool { container != nil }
+
+    /// Load a model, reusing it when it's already resident.
+    ///
+    /// Switching models unloads the previous one first. Holding two 4-bit
+    /// models at once is ~9GB on the seed catalog's largest pair, which no iPad
+    /// will tolerate.
+    func load(
+        repoID: String,
+        cacheLimitBytes: Int,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> ModelContainer {
+        if let container, loadedRepoID == repoID { return container }
+        if loadedRepoID != nil { unload() }
+
+        // Cap MLX's buffer cache. Without this the allocator keeps freed
+        // buffers around, which on a memory-limited device reads to the OS as
+        // sustained high usage and gets the app jetsammed during an unrelated
+        // spike.
+        MLX.GPU.set(cacheLimit: cacheLimitBytes)
+
+        do {
+            let configuration = ModelConfiguration(id: repoID)
+            let loaded = try await LLMModelFactory.shared.loadContainer(configuration: configuration) {
+                progress?($0.fractionCompleted)
+            }
+            container = loaded
+            loadedRepoID = repoID
+            return loaded
+        } catch {
+            unload()
+            throw LocalInferenceError.loadFailed(error.localizedDescription)
+        }
+    }
+
+    /// Drop the model and every derived session.
+    ///
+    /// Called on model switch, on a memory-pressure warning, and when the user
+    /// unloads manually. Sessions must go with it: a ChatSession holds a KV
+    /// cache tied to the container's weights, and keeping one across an unload
+    /// is a use-after-free waiting to happen.
+    func unload() {
+        sessions.removeAll()
+        sessionStates.removeAll()
+        container = nil
+        loadedRepoID = nil
+        MLX.GPU.clearCache()
+    }
+
+    /// Reset one conversation's session without unloading the model. Used when
+    /// the transcript diverges (compaction, edit, retry).
+    func resetSession(conversationID: String) {
+        sessions.removeValue(forKey: conversationID)
+        sessionStates.removeValue(forKey: conversationID)
+    }
+
+    func sessionState(conversationID: String) -> LocalSessionState? {
+        sessionStates[conversationID]
+    }
+
+    func session(conversationID: String) -> ChatSession? {
+        sessions[conversationID]
+    }
+
+    func store(session: ChatSession, state: LocalSessionState, conversationID: String) {
+        sessions[conversationID] = session
+        sessionStates[conversationID] = state
+    }
+}
+
+/// Minis `AgentProvider` backed by MLX.
+final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
+
+    let name: String
+    let model: LLMModel
+    var defaultMaxTokens: Int { settings.maxTokens }
+
+    private let repoID: String
+    private let settings: LocalGenerationSettings
+    private let conversationID: String
+    private let cacheLimitBytes: Int
+
+    init(
+        repoID: String,
+        model: LLMModel,
+        conversationID: String,
+        settings: LocalGenerationSettings = .agentic,
+        cacheLimitBytes: Int = 512 * 1024 * 1024
+    ) {
+        self.repoID = repoID
+        self.model = model
+        self.name = "On-device"
+        self.conversationID = conversationID
+        self.settings = settings
+        self.cacheLimitBytes = cacheLimitBytes
+    }
+
+    func streamAgentMessageClamped(
+        messages: [AgentMessage],
+        systemPrompt: String?,
+        tools: [AgentToolDefinition],
+        maxTokens: Int,
+        thinkingLevel: ThinkingLevel
+    ) async throws -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        guard LocalInferenceAvailability.isAvailable else {
+            throw LocalInferenceError.runtimeUnavailable(
+                LocalInferenceAvailability.unavailableReason ?? "On-device inference is unavailable."
+            )
+        }
+
+        let rendered = LocalTranscriptRenderer.render(messages)
+        let fingerprints = LocalTranscriptRenderer.fingerprints(rendered)
+        let systemHash = TranscriptFingerprint.stableHash(systemPrompt ?? "")
+        let toolsHash = LocalToolSchemaBuilder.hash(tools)
+        let toolSpecs: [ToolSpec] = LocalToolSchemaBuilder.schemas(for: tools).map { $0 as ToolSpec }
+
+        let runtime = LocalModelRuntime.shared
+        let container = try await runtime.load(repoID: repoID, cacheLimitBytes: cacheLimitBytes)
+
+        let decision = LocalTranscriptDelta.decide(
+            cached: await runtime.sessionState(conversationID: conversationID),
+            systemPromptHash: systemHash,
+            toolsHash: toolsHash,
+            incoming: fingerprints
+        )
+
+        var parameters = GenerateParameters()
+        parameters.temperature = settings.temperature
+        parameters.topP = settings.topP
+        parameters.maxTokens = min(maxTokens, settings.maxTokens)
+        parameters.maxKVSize = settings.maxKVSize
+        parameters.kvBits = settings.kvBits
+        parameters.quantizedKVStart = settings.quantizedKVStart
+
+        // Pick the session and the messages to feed it.
+        let session: ChatSession
+        let toFeed: [Chat.Message]
+        switch decision {
+        case .appendSuffix(let fromIndex):
+            guard let existing = await runtime.session(conversationID: conversationID) else {
+                // State said reuse but the session is gone — rebuild rather
+                // than trusting stale bookkeeping.
+                session = ChatSession(container, instructions: systemPrompt,
+                                      generateParameters: parameters, tools: toolSpecs)
+                toFeed = Self.chatMessages(Array(rendered))
+                break
+            }
+            session = existing
+            toFeed = Self.chatMessages(Array(rendered[fromIndex...]))
+        case .rebuild:
+            session = ChatSession(container, instructions: systemPrompt,
+                                  generateParameters: parameters, tools: toolSpecs)
+            toFeed = Self.chatMessages(rendered)
+        }
+
+        let conversationID = self.conversationID
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                var assistantText = ""
+                var sawToolCall = false
+                do {
+                    continuation.yield(.contentBlockStart(.text))
+                    for try await generation in session.streamDetails(to: toFeed) {
+                        try Task.checkCancellation()
+                        switch generation {
+                        case .chunk(let text):
+                            assistantText += text
+                            continuation.yield(.textDelta(text))
+                        case .toolCall(let call):
+                            sawToolCall = true
+                            let id = "local-\(UUID().uuidString.prefix(8))"
+                            let args = call.function.arguments.mapValues { $0.anyValue }
+                            continuation.yield(.contentBlockStart(
+                                .toolUse(id: id, name: call.function.name)))
+                            continuation.yield(.toolCallComplete(
+                                id: id, name: call.function.name, args: args, metadata: nil))
+                        case .rejectedToolCall(let rejection):
+                            // MLX's parser refused it. Try to recover the call
+                            // rather than burning a whole turn — a 4B model
+                            // reproduces the same mistake on retry often enough
+                            // that rejection alone is not a strategy.
+                            let raw = String(describing: rejection)
+                            for salvaged in LocalToolCallSalvage.salvage(from: raw) {
+                                sawToolCall = true
+                                let id = "local-\(UUID().uuidString.prefix(8))"
+                                continuation.yield(.contentBlockStart(
+                                    .toolUse(id: id, name: salvaged.name)))
+                                continuation.yield(.toolCallComplete(
+                                    id: id, name: salvaged.name,
+                                    args: salvaged.arguments.mapValues { $0.anyValue },
+                                    metadata: nil))
+                            }
+                        case .info(let info):
+                            continuation.yield(.usage(LLMUsage(
+                                inputTokens: info.promptTokenCount,
+                                outputTokens: info.generationTokenCount
+                            )))
+                        }
+                    }
+
+                    // Record what this session now holds, including the
+                    // assistant's own reply — omitting it would make the next
+                    // turn look diverged and force a rebuild every time.
+                    let replyFingerprint = TranscriptFingerprint(
+                        role: "assistant",
+                        content: assistantText + "\u{1}" + (sawToolCall ? "tool" : "")
+                    )
+                    await LocalModelRuntime.shared.store(
+                        session: session,
+                        state: LocalTranscriptDelta.advanced(
+                            nil, systemPromptHash: systemHash, toolsHash: toolsHash,
+                            incoming: fingerprints, assistantReply: replyFingerprint
+                        ),
+                        conversationID: conversationID
+                    )
+                    continuation.yield(.done(stopReason: sawToolCall ? .toolUse : .endTurn))
+                    continuation.finish()
+                } catch is CancellationError {
+                    // The session's cache is now out of step with what the
+                    // transcript says was generated, so drop it.
+                    await LocalModelRuntime.shared.resetSession(conversationID: conversationID)
+                    continuation.finish(throwing: LocalInferenceError.cancelled)
+                } catch {
+                    await LocalModelRuntime.shared.resetSession(conversationID: conversationID)
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Map rendered messages onto MLX's chat vocabulary.
+    private static func chatMessages(_ rendered: [LocalTranscriptRenderer.RenderedMessage])
+        -> [Chat.Message] {
+        rendered.map { message in
+            switch message.kind {
+            case .user:
+                return Chat.Message(role: .user, content: message.text)
+            case .assistant(let calls):
+                let toolCalls = calls.map { call -> ToolCall in
+                    let args: [String: JSONValue]
+                    if let data = call.argumentsJSON.data(using: .utf8),
+                       let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+                        args = decoded
+                    } else {
+                        args = [:]
+                    }
+                    return ToolCall(function: .init(name: call.name, arguments: args), id: call.id)
+                }
+                return Chat.Message(
+                    role: .assistant, content: message.text,
+                    tool: toolCalls.isEmpty ? nil : .calls(toolCalls)
+                )
+            case .toolResult(let id, let name):
+                return Chat.Message(role: .tool, content: message.text,
+                                    tool: .result(id: id, name: name))
+            }
+        }
+    }
+}
+
+#endif
