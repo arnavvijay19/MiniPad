@@ -312,7 +312,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/org.swift.swiftpm
-          key: spm-${{ hashFiles('src/ios/Minis.xcodeproj/project.pbxproj') }}
+          # Keyed on Package.resolved, not on project.pbxproj. The pbxproj
+          # changes whenever a Swift file is added, which has nothing to do
+          # with the dependency graph — keying on it threw the cache away on
+          # most commits and made every run re-clone swift-syntax and the
+          # whole NIO stack.
+          key: spm-${{ hashFiles('src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-
 
       - name: Resolve Swift packages
