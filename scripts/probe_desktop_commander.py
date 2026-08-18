@@ -16,7 +16,7 @@ It speaks the same MCP Streamable HTTP protocol the app does (revision
 end to end; nothing else writes anything.
 
 Usage:
-    python3 scripts/probe_desktop_commander.py http://192.168.1.38:8766/mcp
+    python3 scripts/probe_desktop_commander.py http://192.168.1.10:8766/mcp
     python3 scripts/probe_desktop_commander.py <url> --token <bearer>
     python3 scripts/probe_desktop_commander.py <url> --call-echo
 
