@@ -114,22 +114,37 @@ KV-cache continuity, native tool-call parsing (`ToolCallProcessor`,
 from Hugging Face. Writing an inference engine instead would be slower, more
 fragile, and less correct.
 
-### It is compile-gated
+### It is compile-gated, and the gate is now open
 
-Everything MLX-dependent sits inside `#if canImport(MLXLLM) && canImport(MLXHuggingFace)`. Without the
-package the app builds unchanged and reports local inference as unavailable
-*with a reason*. This is not timidity — MLX raises the deployment floor, pulls
-in Metal kernels and a large dependency tree, and only works on Apple silicon.
-A fork that hard-wires it pays that cost forever and makes every upstream merge
-harder.
+Everything MLX-dependent sits inside `#if canImport(MLXLLM) && canImport(MLXHuggingFace)`.
+The gate stays because without the package the app must still build and report
+local inference as unavailable *with a reason* — MLX raises the deployment
+floor, pulls in Metal kernels and a large dependency tree, and only works on
+Apple silicon.
 
-To enable: add `https://github.com/ml-explore/mlx-swift-lm` to the project,
-link `MLXLLM`, `MLXLMCommon` and `MLXHuggingFace` into the Minis target, and
-raise the iOS deployment target to 17.0 or later if it isn't already. The
-package needs **Xcode with a Swift 6.3+ toolchain** — mlx-swift-lm declares
-swift-tools 6.2 and mlx-swift declares 6.3.
+The packages are now declared in the project, so an ordinary build compiles the
+on-device path. `scripts/add_mlx_package.py` is the single place that wiring
+lives, and `--check` fails if any of it goes missing:
 
-#### Three defects this verification caught
+| Package | Products | Pin |
+|---|---|---|
+| `ml-explore/mlx-swift-lm` | `MLXLLM`, `MLXLMCommon`, `MLXHuggingFace` | revision `d7dc03d8447e` |
+| `huggingface/swift-transformers` | `Tokenizers` | 1.3.x |
+| `huggingface/swift-huggingface` | `HuggingFace` | 0.9.x |
+
+The last two look like dead dependencies — nothing in this repository imports
+them except two `import` lines in `MLXLocalProvider.swift`, and no MLX product
+requires them. They are there because `#huggingFaceLoadModelContainer` is a
+**macro**: its expansion is inserted into the *calling* file and names
+`HuggingFace.HubClient` and `Tokenizers.AutoTokenizer`, and mlx-swift-lm
+depends on neither. Removing them fails the build with "no such module".
+
+The app target's deployment target is 17.0, up from upstream's 16.0, because
+mlx-swift-lm declares `.iOS(.v17)`. The extensions stay at 16.0. Building needs
+**Xcode with a Swift 6.3+ toolchain** — mlx-swift-lm declares swift-tools 6.2
+and mlx-swift declares 6.3.
+
+#### Five defects this verification caught
 
 `scripts/typecheck_mlx_adapter.sh` typechecks the mapping against the real
 upstream types rather than against a reading of them. That found:
@@ -143,8 +158,22 @@ upstream types rather than against a reading of them. That found:
 3. `GPU.set(cacheLimit:)` / `GPU.clearCache()` are deprecated, renamed to
    `Memory.cacheLimit` / `Memory.clearCache()`.
 
-All three would have failed the first Xcode build. The script also asserts
-negatively that the two wrong APIs stay unused.
+4. The rejected-tool-call salvage path was reading `String(describing:)` of the
+   rejection — Swift's rendering of a struct — so the JSON repair rules were
+   parsing punctuation this code had emitted. `RejectedToolCall.rawTextPreview`
+   is the model's own output, and is what salvage reads now. Reading the rest
+   of that type also produced two real behaviours: a truncated preview is
+   refused outright (bytes are missing from the *middle*, and completing JSON
+   across a hole invents arguments rather than recovering them), and
+   `rejection.toolName` overrides ours when the two disagree.
+5. `Tokenizers` and `HuggingFace` were imported but not linked, because
+   mlx-swift-lm does not depend on them. This one was caught by the Xcode build
+   rather than the script — see the table above — and the script now asserts it
+   so it cannot recur.
+
+All five would have failed a real Xcode build; the first four before it, the
+fifth as it. The script also asserts negatively that the wrong APIs stay
+unused, and that salvage never parses a description again.
 
 ### Model compatibility is checked before download, not after
 
