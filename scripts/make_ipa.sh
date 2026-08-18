@@ -131,9 +131,13 @@ fi
 rm -f "$OUT"
 ( cd "$STAGE" && zip -qry "$OUT" Payload )
 
-size=$(du -h "$OUT" | cut -f1)
+# Exact bytes, not `du -h`. du reports allocated blocks rounded to whole
+# megabytes, which made the extension-stripped variant print as *larger* than
+# the full one — a number that invites exactly the wrong conclusion. Bytes are
+# also what someone verifying a download can compare.
+bytes=$(wc -c < "$OUT" | tr -d ' ')
 sum=$(shasum -a 256 "$OUT" | cut -d' ' -f1)
 echo "== $OUT =="
-echo "size    $size"
+printf 'size    %s bytes (%.1f MB)\n' "$bytes" "$(echo "$bytes" | awk '{print $1/1048576}')"
 echo "sha256  $sum"
 echo "$sum  $(basename "$OUT")" > "$OUT.sha256"

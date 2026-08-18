@@ -145,10 +145,19 @@ Runner `macos-26`, arm64, Xcode 26.6 (17F113), iPhoneOS 26.5 SDK, Swift 6.3.3,
 | Xcode opens the project (`xcodebuild -list`, `plutil -lint`) | ✅ |
 | LAME builds for device arm64 | ✅ ~37 s |
 | FFmpeg builds — 7 framework bundles, LGPL config | ✅ ~3 min |
-| iSH builds | see §7 |
-| Alpine rootfs prepared | see §7 |
-| App compiles for `generic/platform=iOS` unsigned | see §7 |
-| `.ipa` produced and validated | see §7 |
+| iSH builds (`libish.a`, `libish_emu.a`, `libfakefs.a`, VDSO) | ✅ ~6 s |
+| Alpine rootfs prepared (`alpine-rootfs.zip`, 3.98 MB) | ✅ |
+| App compiles and links for `generic/platform=iOS`, unsigned | ✅ `** BUILD SUCCEEDED **` |
+| MinisTests target compiles | ✅ `** TEST BUILD SUCCEEDED **` |
+| Dependency graph matches the committed lockfile | ✅ 35 packages, unchanged |
+| `.ipa` produced and validated, both variants | ✅ |
+
+The packaged bundle: `com.openminis.app`, `MinimumOSVersion 17.0`, arm64
+(non-fat), 8 embedded frameworks (the seven FFmpeg libraries plus
+RealTimeCutVADCXXLibrary), and — in the full variant only —
+`AgentWidgetExtension.appex`, `MinisFileProvider.appex`, `MinisShare.appex`.
+`make_ipa.sh` refuses a bundle missing the Alpine rootfs or built for the wrong
+architecture, and strips any unit-test bundle it finds.
 
 ### Not proven, and cannot be from here
 
