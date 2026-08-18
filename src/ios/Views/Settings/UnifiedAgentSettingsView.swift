@@ -71,7 +71,11 @@ struct UnifiedAgentSettingsView: View {
         Section {
             LabeledContent("On-device inference") {
                 Text(LocalInferenceAvailability.isAvailable ? "available" : "unavailable")
-                    .foregroundStyle(LocalInferenceAvailability.isAvailable ? .secondary : .red)
+                    // Color on both sides: `.secondary` alone is a
+                    // HierarchicalShapeStyle and `.red` is a Color, and a
+                    // ternary needs one type.
+                    .foregroundStyle(LocalInferenceAvailability.isAvailable
+                                     ? Color.secondary : Color.red)
             }
             LabeledContent("Workspace storage") {
                 Text(AppGroupContainer.isShared ? "shared container" : "app sandbox")

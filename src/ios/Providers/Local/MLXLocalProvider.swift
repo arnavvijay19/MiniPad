@@ -610,9 +610,17 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                                     metadata: nil))
                             }
                         case .info(let info):
+                            // nil, not 0, for the cache fields: there is no
+                            // prompt cache on device to report. KV-cache reuse
+                            // is a different thing entirely — it saves
+                            // *computation*, not billed input tokens — and
+                            // reporting 0 would read as "the cache was checked
+                            // and missed" everywhere this is displayed.
                             continuation.yield(.usage(LLMUsage(
                                 inputTokens: info.promptTokenCount,
-                                outputTokens: info.generationTokenCount
+                                outputTokens: info.generationTokenCount,
+                                cacheCreationInputTokens: nil,
+                                cacheReadInputTokens: nil
                             )))
                         }
                     }
