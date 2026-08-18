@@ -18,7 +18,17 @@ Three things it does, all idempotent:
      `HuggingFace` modules that `#huggingFaceLoadModelContainer` expands into.
      See the comment on PACKAGES — this is not an optional extra.
 
-  3. Raises the app target's iOS deployment target to 17.0. mlx-swift-lm
+  3. Defines MINIS_LOCAL_INFERENCE on the app target, which is what the
+     on-device code is gated on. It used to be gated on
+     `canImport(MLXLLM) && canImport(MLXHuggingFace)`, and that is the wrong
+     question: Xcode makes every resolved package product visible to every
+     target in the project, so `canImport` is true in MinisTests as well — a
+     target that links no MLX product and cannot load the macro plugin
+     `#huggingFaceLoadModelContainer` needs. "Is this module visible" and "is
+     this target built against it" are different things, and only the second
+     one is a safe gate.
+
+  4. Raises the app target's iOS deployment target to 17.0. mlx-swift-lm
      declares `.iOS(.v17)`, so a 16.0 target refuses to link it. This is the
      one piece of upstream divergence the package forces, and it is the
      minimum the package allows.
@@ -164,7 +174,40 @@ def main() -> int:
     for package in PACKAGES:
         src = ensure_package(src, package)
 
-    # 3. Deployment target -----------------------------------------------------
+    # 3. The compilation condition the on-device code is gated on. -------------
+    def define_condition(text: str, config_id: str) -> str:
+        m = re.search(re.escape(config_id) + r" /\* \w+ \*/ = \{.*?^\t\t\};",
+                      text, re.S | re.M)
+        if not m:
+            raise SystemExit(f"could not find build configuration {config_id}")
+        block = m.group(0)
+        if "MINIS_LOCAL_INFERENCE" in block:
+            return text
+        existing = re.search(r"SWIFT_ACTIVE_COMPILATION_CONDITIONS = ([^;]*);", block)
+        if existing:
+            value = existing.group(1).strip().strip('"')
+            new_block = block.replace(
+                existing.group(0),
+                f'SWIFT_ACTIVE_COMPILATION_CONDITIONS = "{value} MINIS_LOCAL_INFERENCE";')
+        else:
+            # Insert alphabetically-ish, next to the other SWIFT_ settings.
+            anchor = "\t\t\t\tSWIFT_EMIT_LOC_STRINGS"
+            if anchor in block:
+                new_block = block.replace(
+                    anchor,
+                    '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = '
+                    '"$(inherited) MINIS_LOCAL_INFERENCE";\n' + anchor, 1)
+            else:
+                new_block = block.replace(
+                    "\t\t\t\tSWIFT_VERSION",
+                    '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = '
+                    '"$(inherited) MINIS_LOCAL_INFERENCE";\n\t\t\t\tSWIFT_VERSION', 1)
+        return text[:m.start()] + new_block + text[m.end():]
+
+    for config in ("E51000072", "E51000073"):   # Minis Debug / Release
+        src = define_condition(src, config)
+
+    # 4. Deployment target -----------------------------------------------------
     # Only the app target's two configurations; the extensions do not link MLX
     # and there is no reason to move them.
     def raise_target(text: str, config_id: str) -> str:
@@ -183,6 +226,7 @@ def main() -> int:
         src = raise_target(src, config)
 
     summary = "; ".join(f"{p['name']} ({', '.join(p['products'])})" for p in PACKAGES)
+    summary += "; MINIS_LOCAL_INFERENCE defined"
 
     if "--check" in sys.argv:
         if src != original:

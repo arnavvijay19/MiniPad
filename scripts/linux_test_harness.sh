@@ -49,6 +49,10 @@ swift --version
 # `URLSessionStreamTransport.swift` is excluded on purpose:
 # `URLSession.AsyncBytes` does not exist in swift-corelibs-foundation. That is
 # precisely why `HTTPStreamTransport` is a protocol — see ARCHITECTURE §2.3.
+#
+# MLXLocalProvider.swift is listed but only its MLX-free half compiles here:
+# the runtime is behind `#if MINIS_LOCAL_INFERENCE`, which only the Xcode app
+# target defines.
 # ---------------------------------------------------------------------------
 SOURCES=(
     Providers/AgentProvider.swift

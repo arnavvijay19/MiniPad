@@ -146,9 +146,13 @@ compiles MLX's Metal kernels, which needs the Metal toolchain; Xcode installs
 it on demand, or `xcodebuild -downloadComponent MetalToolchain` fetches it
 up front.
 
-`python3 scripts/add_mlx_package.py --check` verifies the project still has it
-wired; `scripts/typecheck_mlx_adapter.sh` verifies the adapter against that
-exact revision's API.
+The on-device code is gated on `MINIS_LOCAL_INFERENCE`, a compilation
+condition defined on the app target only — not on `canImport(MLXLLM)`, which is
+true in every target of an Xcode project whether or not that target links MLX.
+
+`python3 scripts/add_mlx_package.py --check` verifies the project still has all
+of it wired; `scripts/typecheck_mlx_adapter.sh` verifies the adapter against
+that exact revision's API.
 
 ### Targets
 

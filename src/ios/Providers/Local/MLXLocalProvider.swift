@@ -6,7 +6,7 @@
 //
 //  WHY IT IS COMPILE-GATED
 //
-//  The whole file is inside `#if canImport(MLXLLM)`. Without the
+//  The runtime half of the file is inside `#if MINIS_LOCAL_INFERENCE`. Without the
 //  `mlx-swift-lm` package added to the project, this compiles to a stub that
 //  reports local inference as unavailable, and the rest of the app is
 //  unaffected — no build break, no dead references, nothing to undo. Adding
@@ -42,7 +42,16 @@ enum LocalInferenceAvailability {
     static var isCompiledIn: Bool {
         // Must match the gate on MLXLocalProvider exactly, or settings would
         // advertise on-device inference that isn't actually compiled in.
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        //
+        // MINIS_LOCAL_INFERENCE, not canImport(MLXLLM): Xcode makes every
+        // resolved package product visible to every target in the project, so
+        // canImport is true even in a target that links no MLX product and
+        // therefore cannot load the macro plugin behind
+        // #huggingFaceLoadModelContainer. "Visible" and "built against" are
+        // different questions and only the second is a safe gate.
+        // scripts/add_mlx_package.py defines this on exactly the target that
+        // links the packages.
+        #if MINIS_LOCAL_INFERENCE
         return true
         #else
         return false
@@ -306,7 +315,7 @@ enum LocalTranscriptRenderer {
 
 // MARK: - The provider
 
-#if canImport(MLXLLM) && canImport(MLXHuggingFace)
+#if MINIS_LOCAL_INFERENCE
 
 import MLX
 import MLXLLM

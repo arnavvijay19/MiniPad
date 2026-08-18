@@ -116,11 +116,21 @@ fragile, and less correct.
 
 ### It is compile-gated, and the gate is now open
 
-Everything MLX-dependent sits inside `#if canImport(MLXLLM) && canImport(MLXHuggingFace)`.
-The gate stays because without the package the app must still build and report
-local inference as unavailable *with a reason* — MLX raises the deployment
-floor, pulls in Metal kernels and a large dependency tree, and only works on
-Apple silicon.
+Everything MLX-dependent sits inside `#if MINIS_LOCAL_INFERENCE`. The gate
+stays because without the package the app must still build and report local
+inference as unavailable *with a reason* — MLX raises the deployment floor,
+pulls in Metal kernels and a large dependency tree, and only works on Apple
+silicon.
+
+The condition used to be `canImport(MLXLLM) && canImport(MLXHuggingFace)`, and
+that was wrong in a way only a real Xcode build could show. Xcode makes every
+resolved package product visible to every target in the project, so `canImport`
+is true inside `MinisTests` — a target that links no MLX product and therefore
+cannot load the macro plugin behind `#huggingFaceLoadModelContainer`. The build
+failed with *plugin for module 'MLXHuggingFaceMacros' not found*. "Is this
+module visible" and "is this target built against it" are different questions,
+and only the second is a safe gate. `scripts/add_mlx_package.py` defines
+`MINIS_LOCAL_INFERENCE` on exactly the target that links the packages.
 
 The packages are now declared in the project, so an ordinary build compiles the
 on-device path. `scripts/add_mlx_package.py` is the single place that wiring

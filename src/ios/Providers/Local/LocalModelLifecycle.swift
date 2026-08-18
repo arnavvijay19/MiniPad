@@ -123,7 +123,7 @@ final class LocalModelLifecycle {
 enum LocalModelRuntimeControl {
 
     static var isModelLoaded: Bool {
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        #if MINIS_LOCAL_INFERENCE
         return MainActor.assumeIsolated { LocalModelStore.shared.loadedRepoID != nil }
         #else
         return false
@@ -131,13 +131,13 @@ enum LocalModelRuntimeControl {
     }
 
     static func unload() {
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        #if MINIS_LOCAL_INFERENCE
         Task { await LocalModelRuntime.shared.unload() }
         #endif
     }
 
     static func clearCache() {
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        #if MINIS_LOCAL_INFERENCE
         Task { await LocalModelRuntime.shared.clearBufferCache() }
         #endif
     }
