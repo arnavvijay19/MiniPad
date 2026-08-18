@@ -61,6 +61,24 @@ APP_SOURCES = 'E51000041'    # Minis target Sources phase
 TEST_SOURCES = 'BB1000030F700000000000AA'   # MinisTests Sources phase
 
 
+# The OpenStep plist grammar Xcode uses allows a bare (unquoted) string only
+# for [A-Za-z0-9_$/:.-]. A filename with any other character — '+' is the one
+# this project actually has — must be quoted, and Xcode itself always quotes
+# them. Emitting `path = AIChatViewModel+UnifiedCapabilities.swift;` produced a
+# project file that every regex-based check accepted and that Xcode refused to
+# open at all: "The project 'Minis' is damaged and cannot be opened due to a
+# parse error."
+_BARE = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$/:.-")
+
+
+def plist_str(value):
+    """Quote `value` when the OpenStep grammar requires it."""
+    if value and all(c in _BARE for c in value):
+        return value
+    escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def stable_id(seed):
     """Deterministic 24-hex-char object id, so re-running produces no diff."""
     return hashlib.sha1(('minipad-unified:' + seed).encode()).hexdigest()[:24].upper()
@@ -93,7 +111,7 @@ def main():
         if not existing:
             ref_line = (f'\t\t{file_ref} /* {basename} */ = {{isa = PBXFileReference; '
                         f'lastKnownFileType = sourcecode.swift; '
-                        f'path = {basename}; sourceTree = "<group>"; }};\n')
+                        f'path = {plist_str(basename)}; sourceTree = "<group>"; }};\n')
             src = src.replace('/* End PBXFileReference section */',
                               ref_line + '/* End PBXFileReference section */', 1)
         else:
@@ -229,7 +247,7 @@ def add_group(src, parent_id, name):
              f'\t\t\tisa = PBXGroup;\n'
              f'\t\t\tchildren = (\n'
              f'\t\t\t);\n'
-             f'\t\t\tpath = {name};\n'
+             f'\t\t\tpath = {plist_str(name)};\n'
              f'\t\t\tsourceTree = "<group>";\n'
              f'\t\t}};\n')
     src = src.replace('/* End PBXGroup section */',
@@ -284,7 +302,7 @@ def normalize_ref(src, file_ref, path, basename):
         r'name = ' + re.escape(basename) + r'; path = ' + re.escape(path)
         + r'; sourceTree = SOURCE_ROOT;')
     return pattern.sub(
-        lambda m: m.group(1) + f'path = {basename}; sourceTree = "<group>";', src)
+        lambda m: m.group(1) + f'path = {plist_str(basename)}; sourceTree = "<group>";', src)
 
 
 def add_to_group(src, path, file_ref, basename):

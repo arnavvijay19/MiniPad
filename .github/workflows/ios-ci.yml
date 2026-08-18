@@ -100,10 +100,17 @@ jobs:
           df -h /
           sysctl -n hw.ncpu hw.memsize
 
+      - name: Metal toolchain present?
+        continue-on-error: true
+        run: xcrun metal --version
+
       - name: Xcode sees the project
         run: |
           cp src/ios/Configs/ProviderCustomization.xcconfig.example \
              src/ios/Configs/ProviderCustomization.xcconfig
+          # plutil reads the same OpenStep grammar Xcode does; if this fails,
+          # scripts/validate_xcodeproj.py should have caught it first.
+          plutil -lint src/ios/Minis.xcodeproj/project.pbxproj
           xcodebuild -project src/ios/Minis.xcodeproj -list
 
       - name: Destinations available for the Minis scheme
@@ -137,7 +144,11 @@ jobs:
                      deps/prepare_alpine_rootfs.sh \
                  | shasum -a 256 | cut -c1-16)
           ish=$(git -C deps/ish rev-parse HEAD)
-          xc=$(xcodebuild -version | head -1 | tr -d ' ')
+          # `head -1` here would close the pipe while xcodebuild is still
+          # writing, and xcodebuild raises NSFileHandleOperationException on
+          # EPIPE rather than exiting quietly — with pipefail that fails the
+          # step. sed reads its input to the end.
+          xc=$(xcodebuild -version | sed -n '1p' | tr -d ' ')
           echo "key=native-${xc}-ish${ish:0:12}-scripts${hash}" >> "$GITHUB_OUTPUT"
 
       - name: Restore native build products
@@ -156,9 +167,13 @@ jobs:
         if: steps.native-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          brew install ninja llvm libarchive pkg-config || true
-          python3 -m pip install --break-system-packages --upgrade meson \
-            || python3 -m pip install --upgrade meson
+          # The runner ships ninja, cmake, pkg-config and zip; the probe job
+          # showed llvm, libarchive and meson are absent. llvm is needed to
+          # compile the guest VDSO, libarchive to unpack the rootfs.
+          brew install llvm libarchive
+          brew list --versions ninja pkg-config
+          python3 -m pip install --break-system-packages --upgrade meson
+          meson --version
 
       - name: Build LAME
         if: steps.native-cache.outputs.cache-hit != 'true'
@@ -203,7 +218,7 @@ jobs:
     name: Build Minis for a physical iPad (unsigned)
     runs-on: macos-26
     needs: native-deps
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
@@ -225,10 +240,35 @@ jobs:
           cp src/ios/Configs/ProviderCustomization.xcconfig.example \
              src/ios/Configs/ProviderCustomization.xcconfig
 
+      - name: Metal toolchain
+        run: |
+          # mlx-swift compiles Metal kernels. Since Xcode 16.3 the Metal
+          # toolchain is a separately downloadable component, so check rather
+          # than assume; downloading it is a no-op when it is already present.
+          if xcrun metal --version 2>/dev/null; then
+            echo "Metal toolchain present"
+          else
+            echo "Metal toolchain absent — downloading"
+            xcodebuild -downloadComponent MetalToolchain
+            xcrun metal --version
+          fi
+
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ hashFiles('src/ios/Minis.xcodeproj/project.pbxproj') }}
+          restore-keys: spm-
+
       - name: Resolve Swift packages
         run: |
           xcodebuild -project src/ios/Minis.xcodeproj \
                      -scheme Minis -resolvePackageDependencies
+
+      - name: Show resolved package versions
+        run: |
+          f=src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          [ -f "$f" ] && cat "$f" || echo "(no Package.resolved)"
 
       - name: Build for generic iOS device (arm64, unsigned)
         run: |

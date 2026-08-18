@@ -512,6 +512,9 @@
 		8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */; };
 		B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */; };
 		296132712FD35B1AD38D7FC5 /* AppGroupContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16FCBD9B7F6F04F2C56E5890 /* AppGroupContainer.swift */; };
+		4BD8CF467C81AE3AA188F8E1 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F7FA66C2E10FBD824A955361 /* MLXLLM */; };
+		870E57B890B92FF5F828198B /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A386BF1833C19858FBE650ED /* MLXLMCommon */; };
+		07E37AAD6EED5998EED8A2C0 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 4B11748CB3D039F86F97518E /* MLXHuggingFace */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1142,7 +1145,7 @@
 		CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedToolRouting.swift; sourceTree = "<group>"; };
 		F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedToolRouter.swift; sourceTree = "<group>"; };
 		4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteEndpointStore.swift; sourceTree = "<group>"; };
-		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatViewModel+UnifiedCapabilities.swift; sourceTree = "<group>"; };
+		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AIChatViewModel+UnifiedCapabilities.swift"; sourceTree = "<group>"; };
 		C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandRisk.swift; sourceTree = "<group>"; };
 		0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActionApproval.swift; sourceTree = "<group>"; };
 		E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRunCoordinator.swift; sourceTree = "<group>"; };
@@ -1189,6 +1192,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				07E37AAD6EED5998EED8A2C0 /* MLXHuggingFace in Frameworks */,
+				870E57B890B92FF5F828198B /* MLXLMCommon in Frameworks */,
+				4BD8CF467C81AE3AA188F8E1 /* MLXLLM in Frameworks */,
 				AA9C2BF92F65996900F41633 /* SwiftMath in Frameworks */,
 				AAF00F012F50A00000049557 /* FFmpeg.framework in Frameworks */,
 				AAF10F012F50A00000049557 /* libavcodec.framework in Frameworks */,
@@ -2332,6 +2338,9 @@
 			);
 			name = Minis;
 			packageProductDependencies = (
+				4B11748CB3D039F86F97518E /* MLXHuggingFace */,
+				A386BF1833C19858FBE650ED /* MLXLMCommon */,
+				F7FA66C2E10FBD824A955361 /* MLXLLM */,
 				E52000021 /* SwiftAnthropic */,
 				E5M000021 /* cmark-gfm */,
 				E5M000022 /* cmark-gfm-extensions */,
@@ -2435,6 +2444,7 @@
 			);
 			mainGroup = E51000030;
 			packageReferences = (
+				B38054331B12287E569B46D2 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				E52000020 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
 				E5M000020 /* XCRemoteSwiftPackageReference "swift-cmark" */,
 				E5X000020 /* XCRemoteSwiftPackageReference "SwiftMath" */,
@@ -3375,7 +3385,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -3429,7 +3439,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -3714,6 +3724,14 @@
 				minimumVersion = 1.7.3;
 			};
 		};
+		B38054331B12287E569B46D2 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
+			requirement = {
+				kind = revision;
+				revision = d7dc03d8447ee6b42b54a1c5295b4e56ee9274f3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -3741,6 +3759,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E5X000020 /* XCRemoteSwiftPackageReference "SwiftMath" */;
 			productName = SwiftMath;
+		};
+		F7FA66C2E10FBD824A955361 /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B38054331B12287E569B46D2 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLLM;
+		};
+		A386BF1833C19858FBE650ED /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B38054331B12287E569B46D2 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLMCommon;
+		};
+		4B11748CB3D039F86F97518E /* MLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B38054331B12287E569B46D2 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXHuggingFace;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
