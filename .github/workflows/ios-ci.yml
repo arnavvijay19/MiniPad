@@ -305,8 +305,14 @@ jobs:
 
       - name: Resolve Swift packages
         run: |
+          # -skipMacroValidation: MLXHuggingFace ships a Swift macro
+          # (#huggingFaceLoadModelContainer). Xcode asks a human to trust a
+          # macro plugin the first time it sees one, and there is no human
+          # here; without this the build stops on "Macro ... must be enabled
+          # before it can be used".
           xcodebuild -project src/ios/Minis.xcodeproj \
-                     -scheme Minis -resolvePackageDependencies
+                     -scheme Minis -skipMacroValidation \
+                     -resolvePackageDependencies
 
       - name: Show resolved package versions
         run: |
@@ -321,6 +327,7 @@ jobs:
                      -configuration Release \
                      -destination 'generic/platform=iOS' \
                      -derivedDataPath "$RUNNER_TEMP/dd" \
+                     -skipMacroValidation \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \

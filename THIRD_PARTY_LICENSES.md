@@ -24,6 +24,13 @@ Direct packages declared in `src/ios/Minis.xcodeproj`:
 | swift-cmark (`cmark-gfm`, `cmark-gfm-extensions`) | 0.7.1 | https://github.com/swiftlang/swift-cmark | **BSD-2-Clause** (with some MIT-licensed vendored files, see its `COPYING`) |
 | SwiftMath | 1.7.3 | https://github.com/mgriebling/SwiftMath | **MIT** |
 | RealTimeCutVADLibrary | 1.0.14 | https://github.com/helloooideeeeea/RealTimeCutVADLibrary | **MIT** |
+| mlx-swift-lm (`MLXLLM`, `MLXLMCommon`, `MLXHuggingFace`) | pinned to revision `d7dc03d8447e` | https://github.com/ml-explore/mlx-swift-lm | **MIT** (Apple) |
+| mlx-swift (`MLX`, `MLXNN`, `MLXOptimizers`, transitively) | resolved by mlx-swift-lm | https://github.com/ml-explore/mlx-swift | **MIT** (Apple) |
+| swift-transformers (tokenizers, transitively) | resolved by mlx-swift-lm | https://github.com/huggingface/swift-transformers | **Apache-2.0** |
+
+mlx-swift-lm is pinned to an exact revision rather than a version range, so
+that `scripts/typecheck_mlx_adapter.sh` and the Xcode build always see the same
+API. `scripts/add_mlx_package.py` is the single place that revision is written.
 
 Transitive packages (pinned in `Package.resolved`), all **Apache-2.0**, maintained by Apple / the Swift Server Workgroup: `async-http-client`, `swift-algorithms`, `swift-asn1`, `swift-async-algorithms`, `swift-atomics`, `swift-certificates`, `swift-collections`, `swift-crypto`, `swift-distributed-tracing`, `swift-http-structured-headers`, `swift-http-types`, `swift-log`, `swift-nio` (+ `-extras`, `-http2`, `-ssl`, `-transport-services`), `swift-numerics`, `swift-service-context`, `swift-service-lifecycle`, `swift-system`.
 

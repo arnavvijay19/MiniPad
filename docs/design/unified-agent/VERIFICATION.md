@@ -16,44 +16,13 @@ tested without a Mac. The harness compiles the production sources directly,
 exactly as the Xcode `MinisTests` target does.
 
 ```sh
-# Swift 6.0.3 toolchain (matches the project's SWIFT_VERSION)
-curl -LO https://download.swift.org/swift-6.0.3-release/ubuntu2404/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-ubuntu24.04.tar.gz
-tar xzf swift-6.0.3-RELEASE-ubuntu24.04.tar.gz
-export PATH=$PWD/swift-6.0.3-RELEASE-ubuntu24.04/usr/bin:$PATH
-
-# Build a harness that compiles the sources + the MinisTests test files
-mkdir -p harness/Tests/UnifiedCoreTests && cd harness
-cat > Package.swift <<'EOF'
-// swift-tools-version: 6.0
-import PackageDescription
-let package = Package(
-    name: "UnifiedCoreHarness",
-    targets: [.testTarget(name: "UnifiedCoreTests", path: "Tests/UnifiedCoreTests")]
-)
-EOF
-IOS=../src/ios
-cd Tests/UnifiedCoreTests
-for f in \
-  Agent/Unified/ExecutionTarget.swift \
-  Agent/Unified/UnifiedPath.swift \
-  Agent/Unified/RemoteEndpointConfig.swift \
-  Agent/Unified/ToolSurfacePolicy.swift \
-  Agent/Unified/UnifiedToolRouting.swift \
-  Agent/Unified/MCP/MCPWireProtocol.swift \
-  Agent/Unified/MCP/HTTPStreamTransport.swift \
-  Agent/Unified/MCP/MCPHTTPClient.swift \
-  Agent/Unified/Windows/DesktopCommanderAdapter.swift \
-  Agent/Unified/Windows/WindowsResultParser.swift \
-  Agent/Unified/Windows/WindowsExecutor.swift \
-  Agent/Unified/Shortcuts/ShortcutsBridge.swift \
-  Providers/AgentProvider.swift \
-  Providers/Local/LocalModelCatalog.swift \
-  Providers/Local/LocalToolCallSalvage.swift \
-  Providers/Local/LocalTranscriptDelta.swift \
-  Providers/Local/MLXLocalProvider.swift ; do ln -sf "$(cd ../../..; pwd)/src/ios/$f" . ; done
-for f in ../../../src/ios/MinisTests/*.swift; do ln -sf "$(cd ../../..; pwd)/src/ios/MinisTests/$(basename $f)" . ; done
-cd ../.. && swift test
+./scripts/linux_test_harness.sh [/path/to/swift-6.0.3/usr/bin]
 ```
+
+The script builds a SwiftPM harness from a manifest of the production sources
+and the `MinisTests` files that depend only on them, exactly as the Xcode
+`MinisTests` target compiles them, and fails if a listed file has gone missing.
+CI runs the same script on every push, so the manifest cannot rot.
 
 Note `URLSessionStreamTransport.swift` is deliberately excluded —
 `URLSession.AsyncBytes` does not exist in swift-corelibs-foundation.
@@ -113,15 +82,64 @@ python3 scripts/check_provider_type_exhaustive.py
 Adding `ProviderType.local` broke exhaustiveness at 28 sites. On a Mac the
 compiler finds them; this finds them without one.
 
+### Free-provisioning capability audit
+
+```sh
+python3 scripts/audit_entitlements.py
+```
+
+Classifies every entitlement in every target against what Xcode's free
+provisioning can issue, and fails if the PersonalFree configuration asks for
+something it cannot. See [FREE_DEVELOPER_CAPABILITIES.md](FREE_DEVELOPER_CAPABILITIES.md).
+
+### Runtime reachability
+
+```sh
+python3 scripts/check_runtime_wiring.py
+```
+
+Thirteen features, each paired with the file that must reference it for the
+feature to be reachable from a running app. This is the check for the failure
+that keeps recurring on this branch: correct code that nothing calls.
+
+### Local model catalog
+
+```sh
+python3 scripts/check_local_models.py
+```
+
+Confirms each catalog entry's Hugging Face repository exists and is public,
+that its `model_type` appears in the pinned mlx-swift-lm revision's
+`ModelTypeRegistry`, that a tokenizer is present, and that the declared
+download size matches the repository's real weights. Run 3 of iOS CI:
+`qwen3_5` ×3 and `gemma4`, all constructible, sizes within 1.6%.
+
 ### Xcode project integrity
 
-`scripts/add_sources_to_xcodeproj.py` is idempotent; re-running it should print
-`No changes`. The result was checked for brace/paren balance, dangling
-`fileRef`s, duplicate object ids and double-compiled sources.
+```sh
+python3 scripts/validate_xcodeproj.py
+```
+
+Parses `project.pbxproj` with the real OpenStep plist grammar before checking
+anything else, then verifies dangling references, build-phase membership, group
+membership, that every Swift reference resolves on disk, and that nothing is
+compiled twice.
+
+The grammar step is not ceremony. An earlier regex-based version of this script
+called the project healthy while Xcode refused to open it at all — one file
+reference contained an unquoted `+`, which is not legal in a bare OpenStep
+string, and the project had been unopenable ever since those sources were
+added. `scripts/add_sources_to_xcodeproj.py` remains idempotent; re-running it
+prints `No changes`.
 
 ---
 
-## 2. Requires a Mac
+## 2. Requires macOS and Xcode — which CI has
+
+None of this needs a Mac *you own*. `.github/workflows/ios-ci.yml` runs it on a
+GitHub-hosted `macos-26` arm64 runner on every push and uploads an installable
+unsigned `.ipa`; see [PRE_MAC_HANDOFF.md](PRE_MAC_HANDOFF.md). The commands
+below are what CI runs, and what to run locally once a Mac is available.
 
 ### Build
 
@@ -163,22 +181,23 @@ here but passes on Linux, the cause is almost certainly a type collision
 between `TestSupport_AgentTypes.swift` and a production source newly added to
 the test target — check the `MinisTests` Sources phase.
 
-### Enable on-device inference
+### On-device inference is already linked
 
-Optional; the app builds and runs without it.
+`mlx-swift-lm` is declared in the Xcode project (products `MLXLLM`,
+`MLXLMCommon`, `MLXHuggingFace`, pinned to `d7dc03d8447e`), so an ordinary
+build compiles `MLXLocalProvider` and `LocalInferenceAvailability.isCompiledIn`
+is `true`. Nothing to add by hand. `python3 scripts/add_mlx_package.py --check`
+fails if that ever stops being true.
 
-1. *File → Add Package Dependencies…* →
-   `https://github.com/ml-explore/mlx-swift-lm`
-2. Add products **MLXLLM** and **MLXLMCommon** to the **Minis** target.
-3. Ensure the iOS deployment target is **17.0 or later** (the package requires
-   it).
-4. Add a row to `THIRD_PARTY_LICENSES.md`: *mlx-swift-lm — MIT — Apple*.
-5. Rebuild. `LocalInferenceAvailability.isCompiledIn` flips to `true` and
-   `MLXLocalProvider` compiles in.
+The package requires iOS 17, which is why the app target's deployment target is
+17.0 rather than upstream's 16.0. The extensions are untouched at 16.0.
 
 Recommended for the 9B model: request the
 `com.apple.developer.kernel.increased-memory-limit` entitlement. Without it,
-`LocalModelMemoryBudget` plans against ~55% of RAM rather than ~72%.
+`LocalModelMemoryBudget` plans against ~55% of RAM rather than ~72%. Whether a
+free Apple ID can sign it is the one open question in
+[FREE_DEVELOPER_CAPABILITIES.md](FREE_DEVELOPER_CAPABILITIES.md), which also
+describes the ten-minute experiment that settles it.
 
 ---
 
@@ -226,6 +245,18 @@ With Wi-Fi cellular data off / cloud providers removed:
 
 Requires the Desktop Commander MCP endpoint reachable on the LAN.
 
+**Do this first, from a-Shell or Termius on the iPad itself:**
+
+```sh
+python3 scripts/probe_desktop_commander.py http://<your-endpoint>/mcp --call-echo
+```
+
+Same device, same Wi-Fi, no app involved. It speaks the same protocol the app
+does and reports the server name, the session id, which of the five core verbs
+bind natively and which capabilities will be emulated. If this fails, the
+problem is the network or the server, not the app — and the error says which.
+
+- [ ] Probe reports the server and its tool surface.
 - [ ] Endpoint added in Settings; "Test connection" reports server name and
       version.
 - [ ] The capability summary matches the endpoint's real tool set — check

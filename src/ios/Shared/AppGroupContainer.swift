@@ -63,8 +63,10 @@ enum AppGroupContainer {
     }()
 
     /// One line for the launch log, so "where did my files go" is answerable
-    /// from a device log without a debugger attached.
-    static var description: String {
+    /// from a device log without a debugger attached. Named `summary` rather
+    /// than `description` to avoid any ambiguity with the metatype at the call
+    /// site.
+    static var summary: String {
         isShared
             ? "App Group container: \(root.path)"
             : "App Group unavailable (not entitled) — using sandbox fallback: \(root.path)"

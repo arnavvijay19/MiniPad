@@ -253,9 +253,9 @@ extension AIChatViewModel {
         AppGroupContainer.root.appendingPathComponent("MinisFileProvider", isDirectory: true)
     }
 
-    /// App Group subdirectory for private metadata that must NOT be exposed
-    /// to iOS Files (mounted-folders.json, FileProvider extension logs, etc).
-    /// Sibling of `minisAppGroupRoot` inside the same App Group container.
+    /// Subdirectory for private metadata that must NOT be exposed to iOS Files
+    /// (mounted-folders.json, FileProvider extension logs, etc). Sibling of
+    /// `minisAppGroupRoot` inside whichever container backs it.
     nonisolated static var minisConfigRoot: URL {
         let url = AppGroupContainer.root
             .appendingPathComponent("MinisConfig", isDirectory: true)

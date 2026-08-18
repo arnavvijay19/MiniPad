@@ -900,6 +900,11 @@ struct MinisApp: App {
         let containerURL = fm.containerURL(forSecurityApplicationGroupIdentifier: groupID)
         let containerPath = containerURL?.path ?? "<nil>"
         let resolvedContainer = containerURL?.resolvingSymlinksInPath().path ?? "<nil>"
+        // Which container the agent's durable state is actually in. In a build
+        // signed with a free Apple ID there is no App Group, and this is the
+        // one line that says so plainly rather than leaving someone to wonder
+        // where their files went.
+        lifecycleLog.info("[Container] \(AppGroupContainer.summary)")
         lifecycleLog.info("[FPSyncTrace] appGroup=\(groupID) container=\(containerPath) resolved=\(resolvedContainer)")
 
         let providerRoot = AIChatViewModel.minisAppGroupRoot
