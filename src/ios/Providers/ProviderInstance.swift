@@ -289,7 +289,13 @@ struct ProviderInstance: Identifiable, Codable, Hashable {
             return ProviderKeychainHelper.loadOAuthToken(
                 instanceId: id, as: KimiTokenStorage.self, caller: "hasAnyCredential"
             ) != nil
-        case .antigravity, .openRouter, .local, .unsupported:
+        case .local:
+            // On-device inference needs no credential, and this flag gates
+            // selectability: the model picker and ModelGroupRouter both skip an
+            // instance without one. Returning false here would make local
+            // models unpickable — implemented and unreachable.
+            return true
+        case .antigravity, .openRouter, .unsupported:
             // unsupported = synced from a newer build; no usable credential here.
             // antigravity stores its token via AntigravityOAuthManager (no
             // standalone Codable used by the diagnostic); OpenRouter is

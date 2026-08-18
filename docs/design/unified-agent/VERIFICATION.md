@@ -223,6 +223,11 @@ later items meaningless.
 ### 3.1 Local inference
 
 - [ ] Model list shows all four seed entries with real download sizes.
+- [ ] The **On-device** provider appears in the model picker and can be made
+      the active provider for a session. `ProviderInstance.hasAnyCredential`
+      gates this: it returns true for `.local` precisely because there is no
+      credential to have, and the picker and `ModelGroupRouter` both skip an
+      instance without one.
 - [ ] A deliberately incompatible repo (e.g. a GGUF-only one) is refused
       **before** downloading, with the GGUF explanation.
 - [ ] Qwen 3.5 4B downloads, with visible progress, and resumes after the app
