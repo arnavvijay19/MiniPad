@@ -46,6 +46,10 @@ WIRING = [
     ("A local model can become the active AgentProvider",
      "LocalAgentProviderFactory", "Agent/Chat/AIChatViewModel+ProviderFactory.swift"),
 
+    ("A downloaded local model can be put into the model picker — without a "
+     "ModelEntry nothing in the app can offer it",
+     "LocalProviderRegistration.register", "Views/Settings/UnifiedAgentSettingsView.swift"),
+
     ("A Shortcuts callback resumes the run that is waiting for it",
      "ShortcutRunCoordinator", "Shared/DeepLinkRouter.swift"),
 

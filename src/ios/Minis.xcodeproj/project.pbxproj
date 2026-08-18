@@ -517,6 +517,7 @@
 		07E37AAD6EED5998EED8A2C0 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 4B11748CB3D039F86F97518E /* MLXHuggingFace */; };
 		79AA8F1DB3E448248EF51781 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = F66C2D2CB60C1D7CBA49BABA /* Tokenizers */; };
 		8FE9E6BE87A15102E8D268E5 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 3A773C4CD6EC70590EA46251 /* HuggingFace */; };
+		FE25943A296E28E2D3AF0311 /* LocalProviderRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1E7306F0B2D5126E56E15B /* LocalProviderRegistration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1157,6 +1158,7 @@
 		454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedAgentSettingsView.swift; sourceTree = "<group>"; };
 		E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolDisclosureState.swift; sourceTree = "<group>"; };
 		16FCBD9B7F6F04F2C56E5890 /* AppGroupContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupContainer.swift; sourceTree = "<group>"; };
+		8F1E7306F0B2D5126E56E15B /* LocalProviderRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalProviderRegistration.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2241,6 +2243,7 @@
 		D66A6FD8C0CD0949C712B7E3 /* Local */ = {
 			isa = PBXGroup;
 			children = (
+				8F1E7306F0B2D5126E56E15B /* LocalProviderRegistration.swift */,
 				7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */,
 				5B73686B8EE1C3D683D402BB /* LocalTranscriptDelta.swift */,
 				9D17264DBC3C284AF2D4C716 /* LocalToolCallSalvage.swift */,
@@ -2636,6 +2639,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FE25943A296E28E2D3AF0311 /* LocalProviderRegistration.swift in Sources */,
 				296132712FD35B1AD38D7FC5 /* AppGroupContainer.swift in Sources */,
 				B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */,
 				8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */,

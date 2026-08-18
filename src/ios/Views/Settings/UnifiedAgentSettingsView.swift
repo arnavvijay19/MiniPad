@@ -26,6 +26,11 @@ struct UnifiedAgentSettingsView: View {
     @State private var addingShortcut = false
     @State private var addingModelRepo = ""
     @State private var addModelError: String?
+    /// Repo ids that already have a ModelEntry, so the row can say so.
+    /// Recomputed on appear and after each change rather than derived in the
+    /// body — `ProviderConfigStore` is not observed here, and reading it every
+    /// body evaluation would walk every entry on every keystroke.
+    @State private var registered: Set<String> = []
     @State private var isRefreshing = false
 
     var body: some View {
@@ -38,6 +43,7 @@ struct UnifiedAgentSettingsView: View {
         .navigationTitle("Agent")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            refreshRegistered()
             // Compatibility verdicts are N network round trips, so they are
             // fetched when this screen opens rather than at launch.
             guard models.compatibility.isEmpty else { return }
@@ -117,6 +123,16 @@ struct UnifiedAgentSettingsView: View {
         }
     }
 
+    private func refreshRegistered() {
+        // Explicit closure rather than passing the method as a value: it is
+        // @MainActor, and handing a MainActor function to a nonisolated
+        // parameter is the kind of thing Swift 5 tolerates and Swift 6 does
+        // not. Calling it here, inside a MainActor method, is unambiguous.
+        registered = Set(models.models
+            .filter { LocalProviderRegistration.isRegistered($0) }
+            .map { $0.repoID })
+    }
+
     @ViewBuilder
     private func modelRow(_ model: LocalModelEntry) -> some View {
         let verdict = models.compatibility[model.repoID]
@@ -131,6 +147,23 @@ struct UnifiedAgentSettingsView: View {
                 Spacer()
                 if let size = model.downloadSizeText {
                     Text(size).font(.caption).foregroundStyle(.secondary)
+                }
+                // The action that makes the whole feature reachable: until a
+                // model has a ModelEntry, nothing in the app can offer it. The
+                // weights download on first use, so this is safe to tap before
+                // anything has been fetched.
+                if registered.contains(model.repoID) {
+                    Label("In picker", systemImage: "checkmark.circle.fill")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("In the model picker")
+                } else if verdict?.isSupported != false {
+                    Button("Use") {
+                        LocalProviderRegistration.register(model)
+                        refreshRegistered()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
                 }
             }
             if let note = model.note {
@@ -147,7 +180,11 @@ struct UnifiedAgentSettingsView: View {
         }
         .swipeActions {
             if !model.isBuiltIn {
-                Button("Remove", role: .destructive) { models.removeModel(repoID: model.repoID) }
+                Button("Remove", role: .destructive) {
+                    LocalProviderRegistration.unregister(model)
+                    models.removeModel(repoID: model.repoID)
+                    refreshRegistered()
+                }
             }
             if models.isDownloaded(model.repoID) {
                 Button("Delete files") { try? models.deleteDownload(repoID: model.repoID) }

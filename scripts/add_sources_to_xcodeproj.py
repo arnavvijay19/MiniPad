@@ -35,6 +35,9 @@ FILES = [
     ('Providers/Local/LocalModelStore.swift', True, False),
     ('Providers/Local/LocalAgentProviderFactory.swift', True, False),
     ('Providers/Local/LocalModelLifecycle.swift', True, False),
+    # Puts a downloaded model into the picker. Without it the whole on-device
+    # path is unreachable: nothing else creates a ModelEntry with a `local/` id.
+    ('Providers/Local/LocalProviderRegistration.swift', True, False),
     ('Views/Settings/UnifiedAgentSettingsView.swift', True, False),
     # Resolves the durable-state container, with a sandbox fallback for builds
     # signed without the App Group entitlement. App target only: an extension

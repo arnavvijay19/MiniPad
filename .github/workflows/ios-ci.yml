@@ -113,20 +113,32 @@ jobs:
         continue-on-error: true
         run: xcrun metal --version
 
-      - name: Xcode sees the project
+      # The hard gate, and it needs no network: plutil reads the same OpenStep
+      # grammar Xcode does, which is exactly the check that was missing when a
+      # single unquoted '+' made the project unopenable.
+      - name: Project file parses
         run: |
           cp src/ios/Configs/ProviderCustomization.xcconfig.example \
              src/ios/Configs/ProviderCustomization.xcconfig
-          # plutil reads the same OpenStep grammar Xcode does; if this fails,
-          # scripts/validate_xcodeproj.py should have caught it first.
           plutil -lint src/ios/Minis.xcodeproj/project.pbxproj
-          xcodebuild -project src/ios/Minis.xcodeproj -list
 
-      - name: Destinations available for the Minis scheme
+      # Informational. `-list` resolves the package graph before it will print
+      # anything, so its failure mode here is a clone flake in a job whose
+      # purpose is an environment inventory. Whether Xcode can really build the
+      # project is the app-build job's question, and it answers it properly.
+      - name: Targets and schemes (informational)
+        continue-on-error: true
+        run: |
+          xcodebuild -project src/ios/Minis.xcodeproj \
+                     -skipMacroValidation -skipPackagePluginValidation \
+                     -list
+
+      - name: Destinations available for the Minis scheme (informational)
         continue-on-error: true
         run: |
           xcodebuild -project src/ios/Minis.xcodeproj -scheme Minis \
-                     -showdestinations 2>&1 | head -40
+                     -skipMacroValidation -skipPackagePluginValidation \
+                     -showdestinations 2>&1 | sed -n '1,40p' 
 
   # ---------------------------------------------------------------------------
   # The expensive part. Cached on the inputs that can change its output:
