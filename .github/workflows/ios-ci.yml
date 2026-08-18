@@ -323,10 +323,35 @@ jobs:
                      -skipPackagePluginValidation \
                      -resolvePackageDependencies
 
-      - name: Show resolved package versions
+      - name: Package graph matches the committed Package.resolved
         run: |
+          set -euo pipefail
           f=src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
-          [ -f "$f" ] && cat "$f" || echo "(no Package.resolved)"
+          if [ ! -f "$f" ]; then echo "no Package.resolved produced"; exit 1; fi
+          python3 - "$f" <<'PY'
+          import json, subprocess, sys
+          path = sys.argv[1]
+          def pins(text):
+              return {p["identity"]: (p["state"].get("version")
+                                      or p["state"].get("revision", "")[:12])
+                      for p in json.loads(text)["pins"]}
+          now = pins(open(path).read())
+          committed = pins(subprocess.run(
+              ["git", "show", f"HEAD:{path}"], capture_output=True, text=True,
+              check=True).stdout)
+          for identity in sorted(set(now) | set(committed)):
+              a, b = committed.get(identity), now.get(identity)
+              flag = "  " if a == b else "->"
+              print(f"{flag} {identity:<34} {a or '(new)'}"
+                    + ("" if a == b else f"  now {b or '(removed)'}"))
+          if now != committed:
+              print("\nResolving changed the dependency graph. If that is "
+                    "intended, commit the updated Package.resolved; the point of "
+                    "committing it is that a bump is a decision, not a surprise.",
+                    file=sys.stderr)
+              sys.exit(1)
+          print(f"\nOK  {len(now)} packages, unchanged")
+          PY
 
       - name: Build for generic iOS device (arm64, unsigned)
         run: |
