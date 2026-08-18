@@ -338,6 +338,30 @@ jobs:
                      CODE_SIGN_IDENTITY="" \
                      build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
 
+      # The test target cannot be *run* here. The native dependencies are built
+      # for device arm64, so a simulator build does not link (see BUILDING.md),
+      # and a hosted runner has no device. Compiling the target is still worth
+      # doing: it type-checks every test against the real Xcode build settings,
+      # which is where a collision between TestSupport_AgentTypes.swift and a
+      # production source would show up. Running them needs the iPad.
+      - name: Compile the test target (device arm64)
+        run: |
+          set -o pipefail
+          # Same configuration and same derived data as the build above, so
+          # this compiles the test target against products that already exist
+          # instead of rebuilding MLX's Metal kernels a second time.
+          xcodebuild -project src/ios/Minis.xcodeproj \
+                     -scheme Minis \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -derivedDataPath "$RUNNER_TEMP/dd" \
+                     -skipMacroValidation \
+                     -skipPackagePluginValidation \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     build-for-testing 2>&1 | tee "$RUNNER_TEMP/xcodebuild-tests.log"
+
       # After the build, not before: a dependency change is a policy question,
       # and finding out whether the app still compiles matters more than
       # answering it first.
@@ -400,4 +424,6 @@ jobs:
         with:
           name: xcodebuild-log
           retention-days: 7
-          path: ${{ runner.temp }}/xcodebuild.log
+          path: |
+            ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/xcodebuild-tests.log

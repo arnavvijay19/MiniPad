@@ -33,6 +33,7 @@ struct UnifiedAgentSettingsView: View {
             localModelsSection
             remoteComputerSection
             shortcutsSection
+            diagnosticsSection
         }
         .navigationTitle("Agent")
         .navigationBarTitleDisplayMode(.inline)
@@ -46,6 +47,40 @@ struct UnifiedAgentSettingsView: View {
         .sheet(isPresented: $addingEndpoint) { RemoteEndpointFormView(endpoint: nil) }
         .sheet(item: $editingShortcut) { ShortcutFormView(shortcut: $0) }
         .sheet(isPresented: $addingShortcut) { ShortcutFormView(shortcut: nil) }
+    }
+
+    // MARK: - Diagnostics
+
+    /// Two facts that decide whether anything else on this screen can work,
+    /// visible without attaching a debugger.
+    ///
+    /// The container line matters most on a build signed with a free Apple ID:
+    /// there is no App Group, so the workspace lives in the app's own sandbox
+    /// and the Files-app integration is absent. That is expected, and a user
+    /// looking for their files deserves to be told where they are rather than
+    /// left to infer it. See
+    /// docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md.
+    @ViewBuilder
+    private var diagnosticsSection: some View {
+        Section {
+            LabeledContent("On-device inference") {
+                Text(LocalInferenceAvailability.isAvailable ? "available" : "unavailable")
+                    .foregroundStyle(LocalInferenceAvailability.isAvailable ? .secondary : .red)
+            }
+            LabeledContent("Workspace storage") {
+                Text(AppGroupContainer.isShared ? "shared container" : "app sandbox")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Diagnostics")
+        } footer: {
+            if !AppGroupContainer.isShared {
+                Text("This build was signed without the App Group entitlement, "
+                     + "so the workspace is private to the app and does not appear "
+                     + "in the Files app. Everything else — models, terminal, "
+                     + "skills, memory, the Windows target — is unaffected.")
+            }
+        }
     }
 
     // MARK: - On-device models

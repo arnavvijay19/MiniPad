@@ -61,6 +61,9 @@ WIRING = [
     ("The workspace root survives a build with no App Group entitlement",
      "AppGroupContainer", "Agent/Chat/AIChatViewModel+RequestBudget.swift"),
 
+    ("Which container holds the workspace is visible without a debugger",
+     "AppGroupContainer.isShared", "Views/Settings/UnifiedAgentSettingsView.swift"),
+
     ("The local provider is offered in the provider picker",
      ".local", "Views/Providers/AddProviderView.swift"),
 

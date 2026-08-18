@@ -178,6 +178,13 @@ arm64. Use a device destination.
 
 ### Run the unit tests in Xcode
 
+CI compiles the test target for a device (`build-for-testing`) but cannot run
+it: the native dependencies are built for device arm64, so a simulator build
+does not link, and a hosted runner has no device. So the Xcode tests are
+compile-verified on every push and **run** only on the iPad. The 303 new tests
+run on every push through the Linux harness, which is the same source.
+
+
 ```sh
 xcodebuild test -project src/ios/Minis.xcodeproj -scheme Minis \
                 -destination 'platform=iOS,name=<your iPad>'
