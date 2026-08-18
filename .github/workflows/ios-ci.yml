@@ -362,6 +362,33 @@ jobs:
                      CODE_SIGN_IDENTITY="" \
                      build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
 
+      - name: Package unsigned IPAs
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/Minis.app"
+          mkdir -p artifacts
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-unsigned.ipa"
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-PersonalFree-unsigned.ipa" \
+                                --strip-extensions
+
+      - name: Upload IPAs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            artifacts/*.ipa
+            artifacts/*.sha256
+
+      # After packaging, deliberately. `build-for-testing` writes
+      # MinisTests.xctest into the same DerivedData products directory and
+      # Xcode embeds a unit-test bundle in its host app's PlugIns/ — so running
+      # it first put the test bundle, and its dSYM, inside the shipped .ipa.
+      # make_ipa.sh strips them as a backstop; not creating the situation is
+      # better than cleaning up after it.
+      #
       # The test target cannot be *run* here. The native dependencies are built
       # for device arm64, so a simulator build does not link (see BUILDING.md),
       # and a hosted runner has no device. Compiling the target is still worth
@@ -385,26 +412,6 @@ jobs:
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
                      build-for-testing 2>&1 | tee "$RUNNER_TEMP/xcodebuild-tests.log"
-
-      - name: Package unsigned IPAs
-        run: |
-          set -euo pipefail
-          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/Minis.app"
-          mkdir -p artifacts
-          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-unsigned.ipa"
-          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-PersonalFree-unsigned.ipa" \
-                                --strip-extensions
-
-      - name: Upload IPAs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ipa
-          retention-days: 14
-          if-no-files-found: ignore
-          path: |
-            artifacts/*.ipa
-            artifacts/*.sha256
 
       # Last, deliberately. A dependency change is a policy question; whether
       # the app compiles and what it produced are facts. Running this before

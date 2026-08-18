@@ -42,6 +42,18 @@ cp -R "$APP" "$STAGE/Payload/"
 NAME="$(basename "$APP")"
 BUNDLE="$STAGE/Payload/$NAME"
 
+# A unit-test bundle is embedded in its host app's PlugIns/ by Xcode, so a
+# DerivedData directory that has seen `build-for-testing` leaves one inside the
+# .app. It must never ship: it is dead weight, it gets re-signed with the app,
+# and it advertises test-only entry points. Removed from both variants,
+# loudly — the build order should prevent this, and silence would hide a
+# regression in that order.
+for junk in "$BUNDLE/PlugIns"/*.xctest "$BUNDLE/PlugIns"/*.xctest.dSYM; do
+    [ -e "$junk" ] || continue
+    echo "== removing test bundle: $(basename "$junk") =="
+    rm -rf "$junk"
+done
+
 if [ "$STRIP" -eq 1 ]; then
     if [ -d "$BUNDLE/PlugIns" ]; then
         echo "== removing extensions =="
