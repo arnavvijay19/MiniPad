@@ -49,10 +49,17 @@ makes, and that cost is otherwise invisible.
 ./scripts/typecheck_mlx_adapter.sh /path/to/swift-6.3+/usr/bin
 ```
 
-Resolves mlx-swift-lm (resolve only — the C++ backend never builds), copies the
-MLX-free type definitions verbatim, extracts the `Chat.Message` mapping straight
-out of MLXLocalProvider so it cannot drift, typechecks it, then asserts 17
-further API facts. It found three real defects; see ARCHITECTURE §3.
+Resolves mlx-swift-lm at the revision `scripts/add_mlx_package.py` pins — read
+from that file, so the assertions and the Xcode build can never see different
+commits — copies the MLX-free type definitions verbatim, extracts the
+`Chat.Message` mapping straight out of MLXLocalProvider so it cannot drift,
+typechecks it, then asserts 25 further API facts.
+
+It has found five real defects so far: three in ARCHITECTURE §3, plus the two
+this branch fixed — salvage parsing `String(describing:)` of a rejection
+rather than the model's own `rawTextPreview`, and the two Hugging Face modules
+the `#huggingFaceLoadModelContainer` expansion names but mlx-swift-lm does not
+depend on, whose absence failed the first real Xcode build.
 
 Needs **Swift 6.3+**: mlx-swift-lm declares swift-tools 6.2 and mlx-swift
 declares 6.3, so nothing older can resolve the package at all.

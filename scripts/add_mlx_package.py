@@ -10,7 +10,7 @@ rather than a code path waiting for someone to wire it up.
 Three things it does, all idempotent:
 
   1. mlx-swift-lm, pinned to an exact revision. Not a branch:
-     `scripts/typecheck_mlx_adapter.sh` asserts seventeen specific facts about
+     `scripts/typecheck_mlx_adapter.sh` asserts two dozen specific facts about
      this package's API, and those assertions are only meaningful if the build
      and the assertions see the same commit. Both pin MLX_REVISION below.
 

@@ -132,7 +132,7 @@ The provisioning profile expires and the app stops launching. Either:
 | No entitlement in the free-signable config that free provisioning cannot issue | `scripts/audit_entitlements.py` |
 | 13 features reachable from running code, not merely implemented | `scripts/check_runtime_wiring.py` |
 | All 4 catalog models exist, are public, and are constructible by the linked MLX revision | `scripts/check_local_models.py` |
-| The MLX adapter matches the real package API (17 assertions) | `scripts/typecheck_mlx_adapter.sh` |
+| The MLX adapter matches the real package API (26 assertions, against the pinned revision) | `scripts/typecheck_mlx_adapter.sh` |
 
 ### Proven on GitHub-hosted macOS + Xcode
 
