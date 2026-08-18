@@ -66,7 +66,7 @@ enum LocalInferenceAvailability {
     /// Sentence for the settings row when local inference can't be used.
     static var unavailableReason: String? {
         if !isCompiledIn {
-            return "This build was compiled without the on-device inference runtime (MLXLLM + MLXHuggingFace). See BUILDING.md → On-device models."
+            return "This build was compiled without the on-device inference runtime (MLXLLM + MLXHuggingFace). See BUILDING.md → On-device inference."
         }
         if !isSupportedHardware {
             return "On-device models need Apple silicon. The simulator can't run them; use a physical device."

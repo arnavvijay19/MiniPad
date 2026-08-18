@@ -386,9 +386,30 @@ jobs:
                      CODE_SIGN_IDENTITY="" \
                      build-for-testing 2>&1 | tee "$RUNNER_TEMP/xcodebuild-tests.log"
 
-      # After the build, not before: a dependency change is a policy question,
-      # and finding out whether the app still compiles matters more than
-      # answering it first.
+      - name: Package unsigned IPAs
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/Minis.app"
+          mkdir -p artifacts
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-unsigned.ipa"
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-PersonalFree-unsigned.ipa" \
+                                --strip-extensions
+
+      - name: Upload IPAs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            artifacts/*.ipa
+            artifacts/*.sha256
+
+      # Last, deliberately. A dependency change is a policy question; whether
+      # the app compiles and what it produced are facts. Running this before
+      # the packaging steps would mean a graph change costs the .ipa, and the
+      # .ipa is the thing someone is waiting for.
       - name: Package graph matches the committed Package.resolved
         if: always()
         run: |
@@ -421,26 +442,6 @@ jobs:
               sys.exit(1)
           print(f"\nOK  {len(now)} packages, unchanged")
           PY
-
-      - name: Package unsigned IPAs
-        run: |
-          set -euo pipefail
-          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/Minis.app"
-          mkdir -p artifacts
-          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-unsigned.ipa"
-          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-PersonalFree-unsigned.ipa" \
-                                --strip-extensions
-
-      - name: Upload IPAs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ipa
-          retention-days: 14
-          if-no-files-found: ignore
-          path: |
-            artifacts/*.ipa
-            artifacts/*.sha256
 
       - name: Upload build log
         if: always()
