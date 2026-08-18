@@ -305,13 +305,22 @@ jobs:
 
       - name: Resolve Swift packages
         run: |
+          # Two separate trust gates, and they need two separate flags.
+          #
           # -skipMacroValidation: MLXHuggingFace ships a Swift macro
-          # (#huggingFaceLoadModelContainer). Xcode asks a human to trust a
-          # macro plugin the first time it sees one, and there is no human
-          # here; without this the build stops on "Macro ... must be enabled
-          # before it can be used".
+          # (#huggingFaceLoadModelContainer), and Xcode asks a human to trust a
+          # macro the first time it sees one.
+          #
+          # -skipPackagePluginValidation: mlx-swift ships a build-tool plugin
+          # called CudaBuild. Validation happens before the plugin would decide
+          # it has nothing to do on iOS, so the build stops at
+          # `Validate plug-in "CudaBuild" in package "mlx-swift"` without it.
+          #
+          # There is no human on a runner to click either prompt.
           xcodebuild -project src/ios/Minis.xcodeproj \
-                     -scheme Minis -skipMacroValidation \
+                     -scheme Minis \
+                     -skipMacroValidation \
+                     -skipPackagePluginValidation \
                      -resolvePackageDependencies
 
       - name: Show resolved package versions
@@ -328,6 +337,7 @@ jobs:
                      -destination 'generic/platform=iOS' \
                      -derivedDataPath "$RUNNER_TEMP/dd" \
                      -skipMacroValidation \
+                     -skipPackagePluginValidation \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGN_IDENTITY="" \
@@ -348,6 +358,7 @@ jobs:
         with:
           name: ipa
           retention-days: 14
+          if-no-files-found: ignore
           path: |
             artifacts/*.ipa
             artifacts/*.sha256

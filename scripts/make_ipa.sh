@@ -66,15 +66,19 @@ done
 # Runtime completeness. Each of these is something the app cannot do without,
 # and each has been silently missing from a build at least once.
 # ---------------------------------------------------------------------------
-problems=()
+# A newline-separated string, not an array: macOS ships bash 3.2, where
+# expanding an empty array under `set -u` is an unbound-variable error.
+problems=""
+note() { problems="${problems}${1}
+"; }
 
 [ -f "$BUNDLE/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")" ] \
-    || problems+=("main executable missing")
+    || note "main executable missing"
 
 # The Alpine rootfs the iSH sandbox unpacks on first launch.
 if [ ! -f "$BUNDLE/alpine-rootfs.zip" ]; then
     found=$(find "$BUNDLE" -maxdepth 2 -name 'alpine-rootfs*' -print -quit)
-    [ -n "$found" ] || problems+=("alpine rootfs missing — the terminal will not start")
+    [ -n "$found" ] || note "alpine rootfs missing — the terminal will not start"
 fi
 
 # FFmpeg ships as embedded frameworks.
@@ -83,7 +87,7 @@ if [ -d "$BUNDLE/Frameworks" ]; then
     echo "Frameworks: $fw"
     ls "$BUNDLE/Frameworks" | sed 's/^/   /'
 else
-    problems+=("no Frameworks directory")
+    note "no Frameworks directory"
 fi
 
 if [ "$STRIP" -eq 0 ] && [ -d "$BUNDLE/PlugIns" ]; then
@@ -92,7 +96,7 @@ if [ "$STRIP" -eq 0 ] && [ -d "$BUNDLE/PlugIns" ]; then
 fi
 
 if [ "$STRIP" -eq 1 ] && [ -d "$BUNDLE/PlugIns" ]; then
-    problems+=("PlugIns survived --strip-extensions")
+    note "PlugIns survived --strip-extensions"
 fi
 
 # Architecture. A simulator build would install nowhere.
@@ -102,13 +106,13 @@ if [ -f "$exe" ]; then
     echo "Architecture: $arch_line"
     case "$arch_line" in
         *arm64*) ;;
-        *) problems+=("executable is not arm64: $arch_line") ;;
+        *) note "executable is not arm64: $arch_line" ;;
     esac
 fi
 
-if [ "${#problems[@]}" -gt 0 ]; then
+if [ -n "$problems" ]; then
     echo "== INCOMPLETE BUNDLE ==" >&2
-    printf '   %s\n' "${problems[@]}" >&2
+    printf '%s' "$problems" | sed 's/^/   /' >&2
     exit 2
 fi
 
