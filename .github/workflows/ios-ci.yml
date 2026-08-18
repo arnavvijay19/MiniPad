@@ -340,6 +340,13 @@ jobs:
                      -skipPackagePluginValidation \
                      -resolvePackageDependencies
 
+      # DerivedData is deliberately NOT cached, even though mlx-swift's Metal
+      # kernels are most of this job's ~40 minutes. Xcode's incremental build
+      # is normally reliable, but the one thing this job exists to answer is
+      # "does this really compile for an iPad", and a cached object file that
+      # should have been rebuilt turns that answer into a guess. The native
+      # dependencies above are cached because their inputs are pinned and
+      # hashed into the key; Xcode's object graph has no equivalent guarantee.
       - name: Build for generic iOS device (arm64, unsigned)
         run: |
           set -o pipefail
