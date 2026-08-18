@@ -361,9 +361,10 @@ Listed so they get attention first when something misbehaves.
 | path | why unverified | risk |
 |---|---|---|
 | `URLSessionStreamTransport` byte batching | needs Darwin | low — no branching, and the seam is exercised by a scripted transport |
-| MLX `ChatSession` history rehydration | needs the package | **medium** — the mapping from `AgentMessage` to `Chat.Message` is written against the package source, not run against it |
-| `LLMModelFactory.loadContainer` progress reporting | needs the package | low |
-| `MLX.GPU.set(cacheLimit:)` value | needs the device | medium — 512MB is a starting point, not a measured one |
+| MLX `ChatSession` history rehydration | needs the device | **medium** — the mapping from `AgentMessage` to `Chat.Message` now type-checks against the pinned package and compiles in Xcode, but has never processed a real transcript |
+| `#huggingFaceLoadModelContainer` progress reporting | needs a real download | low — the callback is wired and the state it sets is displayed; the fractions are the package's |
+| `MLX.Memory.cacheLimit` value | needs the device | medium — 512MB is a starting point, not a measured one |
+| Rejected-tool-call salvage on real 4B output | needs the device | medium — the rules are unit-tested against synthesised malformed output; which of them actually earn their place is a question only a real model answers |
 | Shortcuts `x-callback` return path | needs iOS | **medium** — `result` parameter naming is from the documented interface but versions differ; the parser accepts two spellings |
 | Desktop Commander binding against the *user's actual* build | needs the endpoint | medium — four tool-set shapes are covered in tests, but not theirs |
 | Timeout-unit inference for a bare `timeout` parameter | needs the endpoint | low — defaults to milliseconds, which truncates rather than over-waits |
