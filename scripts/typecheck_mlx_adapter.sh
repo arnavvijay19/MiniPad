@@ -41,12 +41,22 @@ mkdir -p "$WORK/pkg/Sources/Probe" "$WORK/probe"
 
 # 1. Resolve mlx-swift-lm to get the real sources. Resolve only — the C++
 #    backend is never built, which is what keeps this fast and portable.
-cat > "$WORK/pkg/Package.swift" <<'EOF'
+# The revision comes from add_mlx_package.py so there is exactly one place it
+# is written. Resolving `branch: "main"` instead — which this script used to do
+# — checked the adapter against a commit the app does not build against, and
+# quietly started passing or failing for reasons unrelated to this repository.
+REVISION=$(sed -n 's/^MLX_REVISION = "\([0-9a-f]\{40\}\)".*/\1/p' \
+           "$ROOT/scripts/add_mlx_package.py")
+[ -n "$REVISION" ] || { echo "could not read MLX_REVISION from add_mlx_package.py" >&2; exit 1; }
+
+cat > "$WORK/pkg/Package.swift" <<EOF
 // swift-tools-version: 6.2
 import PackageDescription
 let package = Package(
     name: "Probe",
-    dependencies: [.package(url: "https://github.com/ml-explore/mlx-swift-lm", branch: "main")],
+    dependencies: [
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", revision: "$REVISION")
+    ],
     targets: [.target(name: "Probe")]
 )
 EOF
@@ -70,10 +80,35 @@ cp "$COMMON/Chat.swift" \
    "$WORK/probe/"
 
 REV=$(cd "$WORK/pkg/.build/checkouts/mlx-swift-lm" && git rev-parse --short HEAD)
-echo "Using mlx-swift-lm @ $REV"
+echo "Using mlx-swift-lm @ $REV (pinned)"
+case "$REVISION" in
+    "$REV"*) ;;
+    *) echo "resolved $REV but the project pins $REVISION" >&2; exit 1 ;;
+esac
 
-# 3. Stand-ins for the few symbols those files reference from MLX-importing
-#    files. The adapter never constructs any of them.
+# 3a. CoreFoundation stand-ins. `Value.swift` distinguishes a boxed Bool from a
+#     boxed number with CFGetTypeID/CFBooleanGetTypeID, which do not exist in
+#     swift-corelibs-foundation. They are a platform gap in the *harness*, not
+#     in the upstream file, which compiles on Apple platforms — so shim them
+#     rather than editing a file this script copies verbatim on purpose.
+cat > "$WORK/probe/_CoreFoundationShim.swift" <<'EOF'
+#if os(Linux)
+import Foundation
+
+// Enough of the two symbols for type checking. Never executed: this harness
+// only ever compiles.
+typealias CFTypeID = UInt
+
+func CFGetTypeID(_ value: AnyObject) -> CFTypeID {
+    (value as? NSNumber).map { String(cString: $0.objCType) == "c" ? 1 : 0 } ?? 0
+}
+
+func CFBooleanGetTypeID() -> CFTypeID { 1 }
+#endif
+EOF
+
+# 3b. Stand-ins for the few symbols those files reference from MLX-importing
+#     files. The adapter never constructs any of them.
 cat > "$WORK/probe/_Shim.swift" <<'EOF'
 import Foundation
 public typealias Message = [String: any Sendable]
@@ -193,6 +228,31 @@ assert_present "Memory.cacheLimit" \
     "public static var cacheLimit" "$SWIFTMLX/Memory.swift"
 assert_present "Memory.clearCache()" \
     "public static func clearCache" "$SWIFTMLX/Memory.swift"
+
+# The rejected-tool-call salvage path reads the model's own output. Assert the
+# three fields it depends on, because the alternative — String(describing:) on
+# the rejection — compiles perfectly and silently feeds Swift's rendering of a
+# struct to a JSON repair routine.
+for field in rawTextPreview isPreviewTruncated toolName; do
+    assert_present "RejectedToolCall.$field" \
+        "public let $field" "$LM/MLXLMCommon/Tool/RejectedToolCall.swift"
+done
+assert_present "RejectedToolCall.Reason is a String enum" \
+    "enum Reason: String" "$LM/MLXLMCommon/Tool/RejectedToolCall.swift"
+assert_absent "salvage does not parse String(describing: rejection)" \
+    "String\(describing: rejection\)" "$ROOT/src/ios/Providers/Local/MLXLocalProvider.swift"
+
+# Two modules the #huggingFaceLoadModelContainer expansion names. They come
+# from packages mlx-swift-lm does not depend on, so nothing but this catches
+# their removal until an Xcode build fails.
+assert_present "the macro expansion names HuggingFace.HubClient" \
+    "HuggingFace.HubClient" "$LM/MLXHuggingFaceMacros/HuggingFaceIntegrationMacros.swift"
+assert_present "the macro expansion names Tokenizers" \
+    "Tokenizers.AutoTokenizer" "$LM/MLXHuggingFaceMacros/HuggingFaceIntegrationMacros.swift"
+assert_present "provider imports HuggingFace" \
+    "^import HuggingFace" "$ROOT/src/ios/Providers/Local/MLXLocalProvider.swift"
+assert_present "provider imports Tokenizers" \
+    "^import Tokenizers" "$ROOT/src/ios/Providers/Local/MLXLocalProvider.swift"
 
 # The two APIs an earlier draft of the provider used. Both are wrong, and both
 # would have failed the first Xcode build; assert they stay unused.

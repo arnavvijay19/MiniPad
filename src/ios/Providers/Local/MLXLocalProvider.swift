@@ -557,8 +557,36 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                             // rather than burning a whole turn — a 4B model
                             // reproduces the same mistake on retry often enough
                             // that rejection alone is not a strategy.
-                            let raw = String(describing: rejection)
-                            for salvaged in LocalToolCallSalvage.salvage(from: raw) {
+                            //
+                            // Salvage reads `rawTextPreview`, which is the
+                            // model's own output, not `String(describing:)` of
+                            // the rejection — that would be Swift's rendering
+                            // of a struct, and the repair rules would be
+                            // parsing punctuation this code emitted.
+                            //
+                            // A truncated preview is refused outright.
+                            // `isPreviewTruncated` means bytes are missing from
+                            // the *middle*, and completing JSON across a hole
+                            // does not recover arguments, it invents them. The
+                            // salvage rules already refuse to close a
+                            // truncation at the end for the same reason.
+                            guard !rejection.isPreviewTruncated else {
+                                assistantText += "\n[a tool call was rejected: "
+                                    + "\(rejection.reason.rawValue), and its output was "
+                                    + "too long to recover safely]"
+                                break
+                            }
+                            for salvaged in LocalToolCallSalvage.salvage(
+                                from: rejection.rawTextPreview
+                            ) {
+                                // The parser may have recovered the name safely
+                                // even when it could not build the whole call.
+                                // Prefer its answer to ours, and never proceed
+                                // when the two disagree — a wrong tool name is
+                                // the one salvage error with real consequences.
+                                if let known = rejection.toolName, known != salvaged.name {
+                                    continue
+                                }
                                 sawToolCall = true
                                 let id = "local-\(UUID().uuidString.prefix(8))"
                                 continuation.yield(.contentBlockStart(
