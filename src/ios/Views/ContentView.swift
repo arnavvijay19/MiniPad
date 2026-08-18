@@ -319,7 +319,16 @@ struct ContentView: View {
     /// matches the one `openSession` will use after the pop commits.
     @State private var pendingNewChatTargetId: String? = nil
 
-    var body: some View {
+    /// The view and the modifiers that present things: sheets, covers, the
+    /// export overlay, and the notification subscriptions that drive them.
+    ///
+    /// Split out of `body` because the two halves together are one expression
+    /// of 483 lines and 29 chained modifiers, and Swift 6.3 gives up on it:
+    /// `error: the compiler is unable to type-check this expression in
+    /// reasonable time`. Each half gets its own inference budget. Nothing
+    /// moved between them and nothing changed inside them — the split point is
+    /// simply where `.overlay` ends and `.task` begins.
+    private var bodyWithPresentation: some View {
         GeometryReader { geo in
             let wide = isIPad && geo.size.width >= compactThreshold
             Group {
@@ -587,6 +596,10 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.2), value: isExporting)
             }
         }
+    }
+
+    var body: some View {
+        bodyWithPresentation
         .task {
             await performLaunchSessionDecision()
         }
