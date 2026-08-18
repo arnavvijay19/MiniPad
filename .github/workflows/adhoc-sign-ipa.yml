@@ -13,12 +13,21 @@ name: Ad-hoc sign IPA
 # This job ad-hoc signs an .ipa that iOS CI has already produced, purely so the
 # load command exists for Sideloadly to overwrite. It rebuilds nothing.
 
+# workflow_dispatch alone is not usable here: GitHub only resolves dispatchable
+# workflows from the default branch, and this one deliberately lives on the
+# feature branch. A path-filtered push trigger runs it from here instead —
+# touching this file is the way to re-run it.
 on:
+  push:
+    branches:
+      - claude/pre-mac-ipad-ready
+    paths:
+      - .github/workflows/adhoc-sign-ipa.yml
   workflow_dispatch:
     inputs:
       run_id:
         description: "iOS CI run id whose `ipa` artifact should be signed"
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -37,8 +46,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # On a push there are no inputs, so fall back to the newest iOS CI run
+          # that actually succeeded. Resolving it here beats pinning a run id
+          # that goes stale the next time CI runs.
+          RID="${{ inputs.run_id }}"
+          if [ -z "$RID" ]; then
+              RID=$(gh run list --repo "${{ github.repository }}" \
+                       --workflow "iOS CI" \
+                       --branch claude/pre-mac-ipad-ready \
+                       --status success --limit 1 \
+                       --json databaseId --jq '.[0].databaseId')
+          fi
+          echo "using iOS CI run: $RID"
           mkdir -p in
-          gh run download "${{ inputs.run_id }}" \
+          gh run download "$RID" \
              --repo "${{ github.repository }}" \
              --name ipa --dir in
           ls -l in
