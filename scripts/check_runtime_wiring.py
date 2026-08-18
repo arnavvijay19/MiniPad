@@ -32,7 +32,7 @@ WIRING = [
 
     ("Windows approval prompt is attached to a presented view "
      "(without this, request() never returns)",
-     "remoteActionApprovalPrompt", "Views/ContentView.swift"),
+     "remoteActionApprovalPrompt", "MinisApp.swift"),
 
     ("Lazy tool disclosure is applied when building the tool list",
      "ToolSurfacePolicy", "Agent/Chat/AIChatViewModel+ToolDefinitions.swift"),

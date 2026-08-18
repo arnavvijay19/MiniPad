@@ -971,7 +971,7 @@ final class AIChatViewModel: ObservableObject, SpeechControlling {
             return instance.customBaseURL?.isEmpty == false
         case .openRouter, .xAI, .kimiCode:
             return true
-        case .anthropic, .gemini, .antigravity, .unsupported:
+        case .anthropic, .gemini, .antigravity, .local, .unsupported:
             return false
         }
     }

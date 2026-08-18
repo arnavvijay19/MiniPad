@@ -320,6 +320,19 @@ import MLXHuggingFace
 import HuggingFace
 import Tokenizers
 
+/// MLX's chat session, disambiguated from this app's own `ChatSession`.
+///
+/// `ChatStore.swift` declares `struct ChatSession: Identifiable, Codable` — a
+/// stored conversation. A type in the current module always wins over one from
+/// an imported module, so an unqualified `ChatSession` here silently resolves
+/// to the app's model. The failure is not a name clash the compiler points at;
+/// it is `argument type 'ModelContainer' does not conform to expected type
+/// 'Decoder'`, because the call landed on `Codable`'s `init(from:)`.
+/// Internal, not private: `LocalModelRuntime`'s methods are internal and
+/// return this type, and Swift refuses to let an internal signature mention a
+/// private one.
+typealias LLMChatSession = MLXLMCommon.ChatSession
+
 /// Holds one loaded model and serialises access to it.
 ///
 /// An actor because a single `ModelContainer` cannot service two generations
@@ -333,7 +346,7 @@ actor LocalModelRuntime {
 
     private var container: ModelContainer?
     private var loadedRepoID: String?
-    private var sessions: [String: ChatSession] = [:]
+    private var sessions: [String: LLMChatSession] = [:]
     private var sessionStates: [String: LocalSessionState] = [:]
 
     private init() {}
@@ -401,7 +414,7 @@ actor LocalModelRuntime {
     /// Drop the model and every derived session.
     ///
     /// Called on model switch, on a memory-pressure warning, and when the user
-    /// unloads manually. Sessions must go with it: a ChatSession holds a KV
+    /// unloads manually. Sessions must go with it: an LLMChatSession holds a KV
     /// cache tied to the container's weights, and keeping one across an unload
     /// is a use-after-free waiting to happen.
     func unload() {
@@ -434,11 +447,11 @@ actor LocalModelRuntime {
         sessionStates[conversationID]
     }
 
-    func session(conversationID: String) -> ChatSession? {
+    func session(conversationID: String) -> LLMChatSession? {
         sessions[conversationID]
     }
 
-    func store(session: ChatSession, state: LocalSessionState, conversationID: String) {
+    func store(session: LLMChatSession, state: LocalSessionState, conversationID: String) {
         sessions[conversationID] = session
         sessionStates[conversationID] = state
     }
@@ -511,14 +524,14 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
         parameters.quantizedKVStart = settings.quantizedKVStart
 
         // Pick the session and the messages to feed it.
-        let session: ChatSession
+        let session: LLMChatSession
         let toFeed: [Chat.Message]
         switch decision {
         case .appendSuffix(let fromIndex):
             guard let existing = await runtime.session(conversationID: conversationID) else {
                 // State said reuse but the session is gone — rebuild rather
                 // than trusting stale bookkeeping.
-                session = ChatSession(container, instructions: systemPrompt,
+                session = LLMChatSession(container, instructions: systemPrompt,
                                       generateParameters: parameters, tools: toolSpecs)
                 toFeed = Self.chatMessages(Array(rendered))
                 break
@@ -526,7 +539,7 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
             session = existing
             toFeed = Self.chatMessages(Array(rendered[fromIndex...]))
         case .rebuild:
-            session = ChatSession(container, instructions: systemPrompt,
+            session = LLMChatSession(container, instructions: systemPrompt,
                                   generateParameters: parameters, tools: toolSpecs)
             toFeed = Self.chatMessages(rendered)
         }

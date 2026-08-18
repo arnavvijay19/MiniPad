@@ -47,7 +47,7 @@ enum DebugRPCProvider {
             let customBaseSupported: Bool
             switch type {
             case .openAI, .openRouter, .openAIResponses, .gemini, .xAI, .kimiCode: customBaseSupported = true
-            case .anthropic, .antigravity, .unsupported: customBaseSupported = false
+            case .anthropic, .antigravity, .local, .unsupported: customBaseSupported = false
             }
             return [
                 "id": type.rawValue,

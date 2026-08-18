@@ -125,7 +125,8 @@ enum VoiceProviderFactory {
 
         // Antigravity has no OpenAI-compatible voice path; unsupported = synced
         // from a newer build this version can't service.
-        case .antigravity, .kimiCode, .unsupported:
+        // .local is text generation only — no speech endpoint on device.
+        case .antigravity, .kimiCode, .local, .unsupported:
             return nil
         }
     }

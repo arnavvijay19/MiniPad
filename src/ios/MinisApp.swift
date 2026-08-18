@@ -152,6 +152,15 @@ struct MinisApp: App {
                     .overlay(alignment: .top) {
                         BackgroundInterruptionBanner()
                     }
+                    // [unified-exec] The confirmation for a destructive action
+                    // on the PC. A suspended tool call is waiting on it —
+                    // without a presenter, RemoteActionApproval.request() never
+                    // returns — and the prompt is app-global, not something
+                    // ContentView owns. It lived on ContentView's own modifier
+                    // chain until that chain stopped type-checking in
+                    // reasonable time; here it is both cheaper and more
+                    // correctly placed.
+                    .remoteActionApprovalPrompt()
                 AudioPiPCapsule()
                 // Global read-replies capsule — a SINGLE app-root instance driven by
                 // VoiceOutputState, so it persists across chat → home (no per-session
