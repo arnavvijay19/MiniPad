@@ -505,7 +505,8 @@ Honest, per component.
 
 ### Verified — compiled and unit-tested off-device
 
-Swift 6.0.3 on Linux, **286 tests, 0 failures**. Strict concurrency, which is
+Swift 6.0.3 on Linux, **303 tests, 0 failures**, run by
+`scripts/linux_test_harness.sh` on every push. Strict concurrency, which is
 stricter than the app target's Swift 5 mode, so passing here implies passing
 there for these files.
 
@@ -516,9 +517,11 @@ there for these files.
 | `LocalToolCallSalvageTests` | 29 |
 | `ShortcutsBridgeTests` | 22 |
 | `MCPHTTPClientTests` — handshake, session id, re-handshake, correlation, pagination, secrets | 21 |
+| `UnifiedToolRoutingTests` | 19 |
 | `ToolSurfacePolicyTests` | 17 |
 | `RemoteEndpointConfigTests` — private-range detection, redaction, secrets | 15 |
 | `DesktopCommanderAdapterTests` | 14 |
+| `RemoteCommandRiskTests` | 13 |
 | `LocalModelCompatibilityTests` | 12 |
 | `LocalTranscriptDeltaTests` — session reuse | 12 |
 | `WindowsResultParserTests` | 11 |
@@ -526,6 +529,10 @@ there for these files.
 | `LocalTranscriptRendererTests` | 8 |
 | `ShortcutRegistryTests` | 8 |
 | `LocalModelCatalogTests` | 7 |
+| `LocalToolSchemaBuilderTests` | 5 |
+| `OutputClipperTests` | 4 |
+| `LocalModelRegistrationTests` | 4 |
+| `LocalInferenceAvailabilityTests` | 2 |
 | `LocalToolSchemaBuilderTests` | 5 |
 | `OutputClipperTests` | 4 |
 | `LocalInferenceAvailabilityTests` | 2 |
