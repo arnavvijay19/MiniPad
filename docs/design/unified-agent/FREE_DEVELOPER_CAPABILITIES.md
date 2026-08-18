@@ -58,7 +58,7 @@ is the category almost everything in this app falls into.
 | iSH / Alpine terminal | none — in-process emulation, no JIT, no entitlement | ✅ yes | **yes** | unaffected | **keep** |
 | Local workspace, skills, memory | none once `AppGroupContainer` falls back (§4) | ✅ yes | **yes** | unaffected | **keep** |
 | Files access via document picker | none — `UIDocumentPicker` is a plain API | ✅ yes | **yes** | unaffected | **keep** |
-| App Intents / App Shortcuts | none — App Intents needs no entitlement; only legacy SiriKit needs `com.apple.developer.siri`, which this project does not request | ✅ yes | **yes** | unaffected | **keep** |
+| App Intents / App Shortcuts | none — `QuickTaskIntent.swift` imports `AppIntents`, and the project contains no SiriKit (`INIntent`/`INExtension`) at all, so `com.apple.developer.siri` is never needed | ✅ yes | **yes** | unaffected | **keep** (see note) |
 | MCP servers, skills, memory | none — plain HTTP and files | ✅ yes | **yes** | unaffected | **keep** |
 | Windows Desktop Commander executor | none — plain HTTP to a LAN address | ✅ yes | **yes** | unaffected | **keep** |
 | Share data with extensions | `com.apple.security.application-groups` | ❌ no — needs a registered App Group | no | container is `nil`; fallback used | **drop in PersonalFree** |
@@ -74,6 +74,17 @@ is the category almost everything in this app falls into.
 
 Legend: "required for the core agent" means one of the eleven capabilities the
 project brief names as non-negotiable.
+
+### One partial loss worth naming
+
+`QuickTask` defines eight one-utterance shortcuts. The *mechanism* is entirely
+free-signable, and five of them stay: analyze sleep is health, morning briefing
+and check calendar are EventKit, take photo and set alarm are plain APIs. But
+**check weather**, **health report** and **control home** call WeatherKit,
+HealthKit and HomeKit — the three App ID services in the table above. In a
+PersonalFree build those three fail at runtime rather than being hidden, which
+is the honest behaviour but is worth knowing before invoking one and wondering
+what broke.
 
 ### The one genuine unknown
 
