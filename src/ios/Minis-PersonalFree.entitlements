@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Entitlements for the PersonalFree configuration: a build that a free
+	  Apple ID can sign.
+
+	  It is empty, and that is the point. Xcode's free provisioning issues a
+	  bare App ID with no services enabled, so the only entitlements the
+	  profile will ever carry are the four Xcode adds itself
+	  (application-identifier, com.apple.developer.team-identifier,
+	  get-task-allow, keychain-access-groups). Asking for anything else here
+	  makes signing fail outright rather than degrade.
+
+	  What is deliberately absent, and what it costs:
+
+	    com.apple.security.application-groups
+	        Needs an App Group registered in Certificates, Identifiers &
+	        Profiles, which free accounts cannot reach. Without it the app
+	        cannot share files with its extensions — so this configuration
+	        ships no extensions, and AppGroupContainer falls back to the app's
+	        own sandbox. The workspace, skills and memory are unaffected.
+
+	    com.apple.developer.icloud-* / ubiquity-*
+	        Same reason (a container identifier must be registered). Costs
+	        iCloud sync between devices; local storage is unaffected.
+
+	    healthkit / homekit / weatherkit / nfc.readersession.formats
+	        Each must be switched on as a service on the App ID. Costs the
+	        corresponding native offload tools.
+
+	  Everything the unified agent is actually for — on-device MLX inference,
+	  the iSH/Alpine terminal, the local workspace, document-picker file
+	  access, App Intents and App Shortcuts, MCP, skills, memory, and the
+	  Windows Desktop Commander executor — requires no entitlement at all and
+	  is fully present here.
+
+	  See docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md, and
+	  scripts/audit_entitlements.py, which fails the build if this file ever
+	  grows a key free provisioning cannot issue.
+	-->
+</dict>
+</plist>

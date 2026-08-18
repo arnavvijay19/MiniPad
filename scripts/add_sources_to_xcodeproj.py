@@ -2,8 +2,9 @@
 """Add Swift sources to the Minis Xcode project.
 
 The Minis app target is not a file-system-synchronized group, so a new .swift
-file has to be declared explicitly: a PBXFileReference, a PBXGroup membership,
-and a PBXBuildFile in each target's Sources phase that should compile it.
+file has to be declared explicitly: a PBXFileReference, membership in a
+PBXGroup so the file is visible in Xcode's navigator, and a PBXBuildFile in
+each target's Sources phase that should compile it.
 
 Editing project.pbxproj by hand is how you get a project that opens with a red
 file or silently doesn't compile something. This script does it mechanically and
@@ -35,6 +36,10 @@ FILES = [
     ('Providers/Local/LocalAgentProviderFactory.swift', True, False),
     ('Providers/Local/LocalModelLifecycle.swift', True, False),
     ('Views/Settings/UnifiedAgentSettingsView.swift', True, False),
+    # Resolves the durable-state container, with a sandbox fallback for builds
+    # signed without the App Group entitlement. App target only: an extension
+    # falling back to its own sandbox would silently diverge from the app.
+    ('Shared/AppGroupContainer.swift', True, False),
     ('Agent/Unified/MCP/MCPWireProtocol.swift', True, True),
     ('Agent/Unified/MCP/HTTPStreamTransport.swift', True, True),
     ('Agent/Unified/MCP/URLSessionStreamTransport.swift', True, False),
@@ -79,15 +84,24 @@ def main():
         app_build = stable_id('app:' + path)
         test_build = stable_id('test:' + path)
 
-        # 1. PBXFileReference. `sourceTree = SOURCE_ROOT` with the full relative
-        #    path avoids having to create PBXGroups for the new directories —
-        #    Xcode resolves it from the project directory.
+        # 1. PBXFileReference, group-relative. Xcode resolves a `<group>` path
+        #    against the parent group's path, so the reference carries only the
+        #    basename and step 1b puts it in the group for its directory. An
+        #    orphaned reference still *builds* (Xcode falls back to the project
+        #    directory) but is invisible in the navigator, which is how you get
+        #    a project nobody can edit by hand.
         if not existing:
             ref_line = (f'\t\t{file_ref} /* {basename} */ = {{isa = PBXFileReference; '
-                        f'lastKnownFileType = sourcecode.swift; name = {basename}; '
-                        f'path = {path}; sourceTree = SOURCE_ROOT; }};\n')
+                        f'lastKnownFileType = sourcecode.swift; '
+                        f'path = {basename}; sourceTree = "<group>"; }};\n')
             src = src.replace('/* End PBXFileReference section */',
                               ref_line + '/* End PBXFileReference section */', 1)
+        else:
+            src = normalize_ref(src, file_ref, path, basename)
+
+        # 1b. Group membership for the file's directory.
+        if not group_contains(src, path, basename):
+            src = add_to_group(src, path, file_ref, basename)
 
         # 2. PBXBuildFile entries — only the ones not already present.
         in_app = in_app and not phase_contains(src, APP_SOURCES, basename)
@@ -139,6 +153,144 @@ def add_to_phase(src, phase_id, build_id, basename):
         raise SystemExit(f'Could not find Sources phase {phase_id}')
     entry = f'\t\t\t\t{build_id} /* {basename} in Sources */,\n'
     return src[:m.end()] + entry + src[m.end():]
+
+
+# ---------------------------------------------------------------------------
+# PBXGroup handling
+#
+# Groups mirror the directory layout under src/ios. `group_for` walks down from
+# the project's main group, creating any missing level, and returns the id of
+# the group that should hold a file in `directory`.
+# ---------------------------------------------------------------------------
+
+def _objects(src):
+    """id -> body, for every object in the file."""
+    matches = list(re.finditer(r'^\t\t([A-Za-z0-9_]{6,32})\s*(?:/\*.*?\*/)?\s*=\s*\{',
+                               src, re.M))
+    out = {}
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(src)
+        out[m.group(1)] = src[m.start():end]
+    return out
+
+
+def _group_children(body):
+    block = re.search(r'children\s*=\s*\((.*?)\);', body, re.S)
+    if not block:
+        return []
+    return re.findall(r'^\s*([A-Za-z0-9_]{6,32})\s*(?:/\*|,)', block.group(1), re.M)
+
+
+def find_group(src, directory):
+    """Id of the PBXGroup whose resolved path is `directory`, or None.
+
+    `directory` is relative to src/ios and uses '/' separators; '' is the
+    `Minis` group, which is the project's source root in this project.
+    """
+    objs = _objects(src)
+    main = re.search(r'mainGroup\s*=\s*([A-Za-z0-9_]+)', src).group(1)
+
+    def isa(oid):
+        m = re.search(r'isa\s*=\s*(\w+)', objs.get(oid, ''))
+        return m.group(1) if m else None
+
+    def attr(body, key):
+        m = re.search(r'\b' + key + r'\s*=\s*"?([^";\n]+)"?\s*;', body)
+        return m.group(1) if m else None
+
+    found = {}
+
+    def walk(gid, prefix, seen):
+        if gid in seen:
+            return
+        body = objs.get(gid)
+        if body is None or isa(gid) != 'PBXGroup':
+            return
+        tree = attr(body, 'sourceTree') or '<group>'
+        path = attr(body, 'path')
+        if tree == 'SOURCE_ROOT':
+            base = path or ''
+        elif tree == '<group>':
+            base = f'{prefix}/{path}' if (prefix and path) else (path or prefix)
+        else:
+            return
+        found.setdefault(base, gid)
+        for cid in _group_children(body):
+            walk(cid, base, seen | {gid})
+
+    walk(main, '', frozenset())
+    return found.get(directory)
+
+
+def add_group(src, parent_id, name):
+    """Create an empty PBXGroup named `name` inside `parent_id`."""
+    gid = stable_id('group:' + parent_id + '/' + name)
+    block = (f'\t\t{gid} /* {name} */ = {{\n'
+             f'\t\t\tisa = PBXGroup;\n'
+             f'\t\t\tchildren = (\n'
+             f'\t\t\t);\n'
+             f'\t\t\tpath = {name};\n'
+             f'\t\t\tsourceTree = "<group>";\n'
+             f'\t\t}};\n')
+    src = src.replace('/* End PBXGroup section */',
+                      block + '/* End PBXGroup section */', 1)
+    return _insert_child(src, parent_id, gid, name), gid
+
+
+def _insert_child(src, group_id, child_id, comment):
+    pattern = re.compile(
+        r'(' + re.escape(group_id) + r' /\* [^*]*\*/ = \{\n\t\t\tisa = PBXGroup;\n'
+        r'\t\t\tchildren = \(\n)', re.M)
+    m = pattern.search(src)
+    if not m:
+        raise SystemExit(f'Could not find children list of group {group_id}')
+    entry = f'\t\t\t\t{child_id} /* {comment} */,\n'
+    return src[:m.end()] + entry + src[m.end():]
+
+
+def group_for(src, directory):
+    """Id of the group for `directory`, creating missing levels."""
+    gid = find_group(src, directory)
+    if gid:
+        return src, gid
+    parent_dir, _, name = directory.rpartition('/')
+    src, parent = group_for(src, parent_dir)
+    src, gid = add_group(src, parent, name)
+    return src, gid
+
+
+def group_contains(src, path, basename):
+    """True when the file is already a child of the group for its directory."""
+    directory = path.rsplit('/', 1)[0] if '/' in path else ''
+    gid = find_group(src, directory)
+    if not gid:
+        return False
+    body = _objects(src).get(gid, '')
+    block = re.search(r'children\s*=\s*\((.*?)\);', body, re.S)
+    return bool(block) and f'/* {basename} */' in block.group(1)
+
+
+def normalize_ref(src, file_ref, path, basename):
+    """Convert a legacy `SOURCE_ROOT` + full-path reference to group-relative.
+
+    Earlier revisions of this script emitted `sourceTree = SOURCE_ROOT` with the
+    whole relative path so it would not have to create groups. That compiles,
+    but leaves the file out of the navigator. Rewrite such references in place;
+    references that are already group-relative are left alone.
+    """
+    pattern = re.compile(
+        r'(\t\t' + re.escape(file_ref) + r' /\* ' + re.escape(basename)
+        + r' \*/ = \{isa = PBXFileReference;[^\n]*?)'
+        r'name = ' + re.escape(basename) + r'; path = ' + re.escape(path)
+        + r'; sourceTree = SOURCE_ROOT;')
+    return pattern.sub(
+        lambda m: m.group(1) + f'path = {basename}; sourceTree = "<group>";', src)
+
+
+def add_to_group(src, path, file_ref, basename):
+    directory = path.rsplit('/', 1)[0] if '/' in path else ''
+    src, gid = group_for(src, directory)
+    return _insert_child(src, gid, file_ref, basename)
 
 
 if __name__ == '__main__':

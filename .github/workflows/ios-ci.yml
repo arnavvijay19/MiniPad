@@ -1,0 +1,271 @@
+name: iOS CI
+
+# The authoritative Apple build gate for this fork.
+#
+# The Linux harness (see `linux-tests` below) stays useful because it is fast
+# and runs on every push, but it compiles Foundation-only sources. Only Xcode
+# can tell us whether the app target, the extensions, the native sandbox and
+# the MLX package actually build for a real iPad.
+
+on:
+  push:
+    branches:
+      - claude/pre-mac-ipad-ready
+  workflow_dispatch:
+    inputs:
+      skip_native:
+        description: "Skip the native dependency build (probe/lint only)"
+        type: boolean
+        default: false
+
+concurrency:
+  # Deliberately not cancel-in-progress: the native dependency build takes the
+  # better part of an hour and a docs commit landing mid-run should not throw
+  # that away.
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Cheap, fast feedback. Runs on every push and never blocks on the 40-minute
+  # native build.
+  # ---------------------------------------------------------------------------
+  linux-tests:
+    name: Linux unit tests + project validators
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Swift toolchain
+        id: swift-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/swift-toolchain
+          key: swift-6.0.3-ubuntu24.04
+
+      - name: Install Swift 6.0.3
+        if: steps.swift-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/swift-toolchain
+          url=https://download.swift.org/swift-6.0.3-release/ubuntu2404/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-ubuntu24.04.tar.gz
+          curl -fsSL "$url" | tar xz -C ~/swift-toolchain --strip-components=1
+
+      - name: Unit tests (Swift 6 strict concurrency)
+        run: ./scripts/linux_test_harness.sh ~/swift-toolchain/usr/bin
+
+      - name: ProviderType exhaustiveness
+        run: python3 scripts/check_provider_type_exhaustive.py
+
+      - name: Xcode project file is well-formed
+        run: python3 scripts/validate_xcodeproj.py
+
+      - name: Entitlement / capability audit
+        run: python3 scripts/audit_entitlements.py
+
+      - name: MCP integration test over a real socket
+        run: ./scripts/integration_test_mcp.sh ~/swift-toolchain/usr/bin
+
+  # ---------------------------------------------------------------------------
+  # What the runner actually gives us. Deliberately its own job: it is two
+  # minutes long and it is the first thing to read when a native step breaks.
+  # ---------------------------------------------------------------------------
+  probe:
+    name: macOS runner probe
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain inventory
+        run: |
+          set -x
+          sw_vers
+          uname -m
+          xcodebuild -version
+          ls /Applications | grep -i xcode || true
+          xcrun --sdk iphoneos --show-sdk-path || true
+          xcrun --sdk iphoneos --show-sdk-version || true
+          swift --version
+          python3 --version
+          for t in ninja meson llvm-config pkg-config cmake zip; do
+            printf '%-12s ' "$t"; command -v "$t" || echo "(absent)"
+          done
+          brew --version
+          for f in ninja llvm libarchive pkg-config; do
+            printf '%-12s ' "$f"; brew list --versions "$f" || echo "(not installed)"
+          done
+          df -h /
+          sysctl -n hw.ncpu hw.memsize
+
+      - name: Xcode sees the project
+        run: |
+          cp src/ios/Configs/ProviderCustomization.xcconfig.example \
+             src/ios/Configs/ProviderCustomization.xcconfig
+          xcodebuild -project src/ios/Minis.xcodeproj -list
+
+      - name: Destinations available for the Minis scheme
+        continue-on-error: true
+        run: |
+          xcodebuild -project src/ios/Minis.xcodeproj -scheme Minis \
+                     -showdestinations 2>&1 | head -40
+
+  # ---------------------------------------------------------------------------
+  # The expensive part. Cached on the inputs that can change its output:
+  # the build scripts themselves and the pinned submodule commits.
+  # ---------------------------------------------------------------------------
+  native-deps:
+    name: Native dependencies (LAME, FFmpeg, iSH, Alpine)
+    runs-on: macos-26
+    if: ${{ !inputs.skip_native }}
+    timeout-minutes: 90
+    outputs:
+      cache-key: ${{ steps.key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute cache key
+        id: key
+        run: |
+          set -euo pipefail
+          # Everything that determines the contents of deps/{libs,include,frameworks,resources}.
+          hash=$(cat deps/build_lame.sh deps/build_ffmpeg.sh deps/build_ish.sh \
+                     deps/prepare_alpine_rootfs.sh \
+                 | shasum -a 256 | cut -c1-16)
+          ish=$(git -C deps/ish rev-parse HEAD)
+          xc=$(xcodebuild -version | head -1 | tr -d ' ')
+          echo "key=native-${xc}-ish${ish:0:12}-scripts${hash}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore native build products
+        id: native-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/libs
+            deps/include
+            deps/frameworks
+            deps/resources
+            deps/lame-build
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Install build tools
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          brew install ninja llvm libarchive pkg-config || true
+          python3 -m pip install --break-system-packages --upgrade meson \
+            || python3 -m pip install --upgrade meson
+
+      - name: Build LAME
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: ./deps/build_lame.sh
+
+      - name: Build FFmpeg
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: ./deps/build_ffmpeg.sh
+
+      - name: Build iSH
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: ./deps/build_ish.sh
+
+      - name: Prepare Alpine rootfs
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: ./deps/prepare_alpine_rootfs.sh
+
+      - name: Inventory what was produced
+        if: always()
+        run: |
+          for d in deps/libs deps/include deps/frameworks deps/resources deps/lame-build; do
+            echo "== $d =="
+            ls -la "$d" 2>/dev/null || echo "(absent)"
+          done
+
+      - name: Upload native products
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-deps
+          retention-days: 3
+          path: |
+            deps/libs
+            deps/include
+            deps/frameworks
+            deps/resources
+
+  # ---------------------------------------------------------------------------
+  # The actual Apple gate: does this compile for a real iPad?
+  # ---------------------------------------------------------------------------
+  app-build:
+    name: Build Minis for a physical iPad (unsigned)
+    runs-on: macos-26
+    needs: native-deps
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore native build products
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/libs
+            deps/include
+            deps/frameworks
+            deps/resources
+            deps/lame-build
+          key: ${{ needs.native-deps.outputs.cache-key }}
+
+      - name: Build-time customization (empty values are supported)
+        run: |
+          cp src/ios/Configs/ProviderCustomization.xcconfig.example \
+             src/ios/Configs/ProviderCustomization.xcconfig
+
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -project src/ios/Minis.xcodeproj \
+                     -scheme Minis -resolvePackageDependencies
+
+      - name: Build for generic iOS device (arm64, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project src/ios/Minis.xcodeproj \
+                     -scheme Minis \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -derivedDataPath "$RUNNER_TEMP/dd" \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Package unsigned IPAs
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/Minis.app"
+          mkdir -p artifacts
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-unsigned.ipa"
+          ./scripts/make_ipa.sh "$APP" "$PWD/artifacts/MiniPad-PersonalFree-unsigned.ipa" \
+                                --strip-extensions
+
+      - name: Upload IPAs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          retention-days: 14
+          path: |
+            artifacts/*.ipa
+            artifacts/*.sha256
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          retention-days: 7
+          path: ${{ runner.temp }}/xcodebuild.log

@@ -511,6 +511,7 @@
 		A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */; };
 		8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */; };
 		B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */; };
+		296132712FD35B1AD38D7FC5 /* AppGroupContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16FCBD9B7F6F04F2C56E5890 /* AppGroupContainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1122,34 +1123,35 @@
 		F1W00100 /* PrintHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintHelper.swift; sourceTree = "<group>"; };
 		F1W0E100 /* WebLoadError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadError.swift; sourceTree = "<group>"; };
 		F2941B643B8A2F048A2B154E /* VoiceProviderFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceProviderFactory.swift; sourceTree = "<group>"; };
-		12D44C9392BD4C14015588CD /* ExecutionTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ExecutionTarget.swift; path = Agent/Unified/ExecutionTarget.swift; sourceTree = SOURCE_ROOT; };
-		849D77AAE7E3D94B74D468F3 /* UnifiedPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedPath.swift; path = Agent/Unified/UnifiedPath.swift; sourceTree = SOURCE_ROOT; };
-		9A2F56D3DE9C490D4B9F4DA8 /* RemoteEndpointConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteEndpointConfig.swift; path = Agent/Unified/RemoteEndpointConfig.swift; sourceTree = SOURCE_ROOT; };
-		2172F61B21150BB3467FDA88 /* ToolSurfacePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ToolSurfacePolicy.swift; path = Agent/Unified/ToolSurfacePolicy.swift; sourceTree = SOURCE_ROOT; };
-		9AFAB98CFCDF906079A8F04C /* MCPWireProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MCPWireProtocol.swift; path = Agent/Unified/MCP/MCPWireProtocol.swift; sourceTree = SOURCE_ROOT; };
-		D2BC2691EE9E6D479FE79A16 /* HTTPStreamTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HTTPStreamTransport.swift; path = Agent/Unified/MCP/HTTPStreamTransport.swift; sourceTree = SOURCE_ROOT; };
-		F92E159900946519505B1984 /* URLSessionStreamTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = URLSessionStreamTransport.swift; path = Agent/Unified/MCP/URLSessionStreamTransport.swift; sourceTree = SOURCE_ROOT; };
-		1B8D2D6A6B828A560D05E133 /* MCPHTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MCPHTTPClient.swift; path = Agent/Unified/MCP/MCPHTTPClient.swift; sourceTree = SOURCE_ROOT; };
-		1C2D129E6457C1758FDAC512 /* DesktopCommanderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DesktopCommanderAdapter.swift; path = Agent/Unified/Windows/DesktopCommanderAdapter.swift; sourceTree = SOURCE_ROOT; };
-		AD3A414093EB24C002C89F23 /* WindowsResultParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WindowsResultParser.swift; path = Agent/Unified/Windows/WindowsResultParser.swift; sourceTree = SOURCE_ROOT; };
-		1F5FE6A42BC55F30032B0748 /* WindowsExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WindowsExecutor.swift; path = Agent/Unified/Windows/WindowsExecutor.swift; sourceTree = SOURCE_ROOT; };
-		D5615B11856C2407056F3399 /* ShortcutsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShortcutsBridge.swift; path = Agent/Unified/Shortcuts/ShortcutsBridge.swift; sourceTree = SOURCE_ROOT; };
-		AA21024ABEE651A04253327E /* LocalModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelCatalog.swift; path = Providers/Local/LocalModelCatalog.swift; sourceTree = SOURCE_ROOT; };
-		9D17264DBC3C284AF2D4C716 /* LocalToolCallSalvage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalToolCallSalvage.swift; path = Providers/Local/LocalToolCallSalvage.swift; sourceTree = SOURCE_ROOT; };
-		5B73686B8EE1C3D683D402BB /* LocalTranscriptDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalTranscriptDelta.swift; path = Providers/Local/LocalTranscriptDelta.swift; sourceTree = SOURCE_ROOT; };
-		7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MLXLocalProvider.swift; path = Providers/Local/MLXLocalProvider.swift; sourceTree = SOURCE_ROOT; };
-		CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedToolRouting.swift; path = Agent/Unified/UnifiedToolRouting.swift; sourceTree = SOURCE_ROOT; };
-		F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedToolRouter.swift; path = Agent/Unified/UnifiedToolRouter.swift; sourceTree = SOURCE_ROOT; };
-		4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteEndpointStore.swift; path = Agent/Unified/RemoteEndpointStore.swift; sourceTree = SOURCE_ROOT; };
-		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AIChatViewModel+UnifiedCapabilities.swift; path = Agent/Unified/AIChatViewModel+UnifiedCapabilities.swift; sourceTree = SOURCE_ROOT; };
-		C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteCommandRisk.swift; path = Agent/Unified/RemoteCommandRisk.swift; sourceTree = SOURCE_ROOT; };
-		0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteActionApproval.swift; path = Agent/Unified/RemoteActionApproval.swift; sourceTree = SOURCE_ROOT; };
-		E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShortcutRunCoordinator.swift; path = Agent/Unified/Shortcuts/ShortcutRunCoordinator.swift; sourceTree = SOURCE_ROOT; };
-		24B54317CC270E1866C38935 /* LocalModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelStore.swift; path = Providers/Local/LocalModelStore.swift; sourceTree = SOURCE_ROOT; };
-		1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentProviderFactory.swift; path = Providers/Local/LocalAgentProviderFactory.swift; sourceTree = SOURCE_ROOT; };
-		F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalModelLifecycle.swift; path = Providers/Local/LocalModelLifecycle.swift; sourceTree = SOURCE_ROOT; };
-		454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnifiedAgentSettingsView.swift; path = Views/Settings/UnifiedAgentSettingsView.swift; sourceTree = SOURCE_ROOT; };
-		E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ToolDisclosureState.swift; path = Agent/Unified/ToolDisclosureState.swift; sourceTree = SOURCE_ROOT; };
+		12D44C9392BD4C14015588CD /* ExecutionTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionTarget.swift; sourceTree = "<group>"; };
+		849D77AAE7E3D94B74D468F3 /* UnifiedPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedPath.swift; sourceTree = "<group>"; };
+		9A2F56D3DE9C490D4B9F4DA8 /* RemoteEndpointConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteEndpointConfig.swift; sourceTree = "<group>"; };
+		2172F61B21150BB3467FDA88 /* ToolSurfacePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolSurfacePolicy.swift; sourceTree = "<group>"; };
+		9AFAB98CFCDF906079A8F04C /* MCPWireProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPWireProtocol.swift; sourceTree = "<group>"; };
+		D2BC2691EE9E6D479FE79A16 /* HTTPStreamTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPStreamTransport.swift; sourceTree = "<group>"; };
+		F92E159900946519505B1984 /* URLSessionStreamTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionStreamTransport.swift; sourceTree = "<group>"; };
+		1B8D2D6A6B828A560D05E133 /* MCPHTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPHTTPClient.swift; sourceTree = "<group>"; };
+		1C2D129E6457C1758FDAC512 /* DesktopCommanderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopCommanderAdapter.swift; sourceTree = "<group>"; };
+		AD3A414093EB24C002C89F23 /* WindowsResultParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsResultParser.swift; sourceTree = "<group>"; };
+		1F5FE6A42BC55F30032B0748 /* WindowsExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsExecutor.swift; sourceTree = "<group>"; };
+		D5615B11856C2407056F3399 /* ShortcutsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsBridge.swift; sourceTree = "<group>"; };
+		AA21024ABEE651A04253327E /* LocalModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelCatalog.swift; sourceTree = "<group>"; };
+		9D17264DBC3C284AF2D4C716 /* LocalToolCallSalvage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalToolCallSalvage.swift; sourceTree = "<group>"; };
+		5B73686B8EE1C3D683D402BB /* LocalTranscriptDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTranscriptDelta.swift; sourceTree = "<group>"; };
+		7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXLocalProvider.swift; sourceTree = "<group>"; };
+		CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedToolRouting.swift; sourceTree = "<group>"; };
+		F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedToolRouter.swift; sourceTree = "<group>"; };
+		4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteEndpointStore.swift; sourceTree = "<group>"; };
+		B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatViewModel+UnifiedCapabilities.swift; sourceTree = "<group>"; };
+		C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandRisk.swift; sourceTree = "<group>"; };
+		0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActionApproval.swift; sourceTree = "<group>"; };
+		E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRunCoordinator.swift; sourceTree = "<group>"; };
+		24B54317CC270E1866C38935 /* LocalModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelStore.swift; sourceTree = "<group>"; };
+		1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAgentProviderFactory.swift; sourceTree = "<group>"; };
+		F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelLifecycle.swift; sourceTree = "<group>"; };
+		454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedAgentSettingsView.swift; sourceTree = "<group>"; };
+		E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolDisclosureState.swift; sourceTree = "<group>"; };
+		16FCBD9B7F6F04F2C56E5890 /* AppGroupContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupContainer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1404,6 +1406,7 @@
 		E52000030 /* Providers */ = {
 			isa = PBXGroup;
 			children = (
+				D66A6FD8C0CD0949C712B7E3 /* Local */,
 				E52000011 /* LLMTypes.swift */,
 				E52000012 /* LLMError.swift */,
 				E5OARC030 /* OAuthRefreshCoordinator.swift */,
@@ -1461,6 +1464,7 @@
 		E53000030 /* Agent */ = {
 			isa = PBXGroup;
 			children = (
+				03A03FF29FCE58097B6B22F5 /* Unified */,
 				F1A00014 /* Background */,
 				E57000030 /* BrowserUse */,
 				F1A00010 /* Chat */,
@@ -1649,6 +1653,7 @@
 		E5E000031 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				16FCBD9B7F6F04F2C56E5890 /* AppGroupContainer.swift */,
 				E5G000014 /* AgentActivityAttributes.swift */,
 				E5AT00011 /* AudioTogglePlaybackIntent.swift */,
 				E5Q000013 /* AppLogger.swift */,
@@ -2101,6 +2106,7 @@
 		F1V00011 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				454130DE9339C233E4DB4B59 /* UnifiedAgentSettingsView.swift */,
 				AA0838A12F3B941A00049557 /* AboutView.swift */,
 				E5S000014 /* CloudSyncSettingsView.swift */,
 				E5G000013 /* EnhancedBackgroundSettingsView.swift */,
@@ -2190,6 +2196,71 @@
 				F1VMCP04 /* SessionMCPsView.swift */,
 			);
 			path = MCP;
+			sourceTree = "<group>";
+		};
+		03A03FF29FCE58097B6B22F5 /* Unified */ = {
+			isa = PBXGroup;
+			children = (
+				CD83F8F9627F7D66E4A3FD75 /* Windows */,
+				C0C06C116EF5B1935161F5FF /* MCP */,
+				21F36F04D3E31DCAAEDFBAF0 /* Shortcuts */,
+				E318A3FBC3532B3635CB367E /* ToolDisclosureState.swift */,
+				0CFB7E73358173489F9B8DA0 /* RemoteActionApproval.swift */,
+				C215520919CCFED6557C07BB /* RemoteCommandRisk.swift */,
+				B8D1DB5DAA46F3B10DAA069B /* AIChatViewModel+UnifiedCapabilities.swift */,
+				4543F2CA2C9DAE8F7A0702A3 /* RemoteEndpointStore.swift */,
+				F7200A03365E6054BBAD0E1B /* UnifiedToolRouter.swift */,
+				CA9516D994F80AE27A08CA2D /* UnifiedToolRouting.swift */,
+				2172F61B21150BB3467FDA88 /* ToolSurfacePolicy.swift */,
+				9A2F56D3DE9C490D4B9F4DA8 /* RemoteEndpointConfig.swift */,
+				849D77AAE7E3D94B74D468F3 /* UnifiedPath.swift */,
+				12D44C9392BD4C14015588CD /* ExecutionTarget.swift */,
+			);
+			path = Unified;
+			sourceTree = "<group>";
+		};
+		21F36F04D3E31DCAAEDFBAF0 /* Shortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				D5615B11856C2407056F3399 /* ShortcutsBridge.swift */,
+				E37B8B5EEA44FDC5C9FB0C16 /* ShortcutRunCoordinator.swift */,
+			);
+			path = Shortcuts;
+			sourceTree = "<group>";
+		};
+		D66A6FD8C0CD0949C712B7E3 /* Local */ = {
+			isa = PBXGroup;
+			children = (
+				7026466C30790ABAE7EE8705 /* MLXLocalProvider.swift */,
+				5B73686B8EE1C3D683D402BB /* LocalTranscriptDelta.swift */,
+				9D17264DBC3C284AF2D4C716 /* LocalToolCallSalvage.swift */,
+				AA21024ABEE651A04253327E /* LocalModelCatalog.swift */,
+				F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */,
+				1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */,
+				24B54317CC270E1866C38935 /* LocalModelStore.swift */,
+			);
+			path = Local;
+			sourceTree = "<group>";
+		};
+		C0C06C116EF5B1935161F5FF /* MCP */ = {
+			isa = PBXGroup;
+			children = (
+				1B8D2D6A6B828A560D05E133 /* MCPHTTPClient.swift */,
+				F92E159900946519505B1984 /* URLSessionStreamTransport.swift */,
+				D2BC2691EE9E6D479FE79A16 /* HTTPStreamTransport.swift */,
+				9AFAB98CFCDF906079A8F04C /* MCPWireProtocol.swift */,
+			);
+			path = MCP;
+			sourceTree = "<group>";
+		};
+		CD83F8F9627F7D66E4A3FD75 /* Windows */ = {
+			isa = PBXGroup;
+			children = (
+				1F5FE6A42BC55F30032B0748 /* WindowsExecutor.swift */,
+				AD3A414093EB24C002C89F23 /* WindowsResultParser.swift */,
+				1C2D129E6457C1758FDAC512 /* DesktopCommanderAdapter.swift */,
+			);
+			path = Windows;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2547,6 +2618,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				296132712FD35B1AD38D7FC5 /* AppGroupContainer.swift in Sources */,
 				B37F65CCDA55FF4EF61B682A /* ToolDisclosureState.swift in Sources */,
 				8C6C1A76D317873E62EA2DCC /* UnifiedAgentSettingsView.swift in Sources */,
 				A3C0B45886D928C58E970DDF /* LocalModelLifecycle.swift in Sources */,
