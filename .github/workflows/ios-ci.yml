@@ -323,7 +323,26 @@ jobs:
                      -skipPackagePluginValidation \
                      -resolvePackageDependencies
 
+      - name: Build for generic iOS device (arm64, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project src/ios/Minis.xcodeproj \
+                     -scheme Minis \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -derivedDataPath "$RUNNER_TEMP/dd" \
+                     -skipMacroValidation \
+                     -skipPackagePluginValidation \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      # After the build, not before: a dependency change is a policy question,
+      # and finding out whether the app still compiles matters more than
+      # answering it first.
       - name: Package graph matches the committed Package.resolved
+        if: always()
         run: |
           set -euo pipefail
           f=src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
@@ -345,28 +364,15 @@ jobs:
               print(f"{flag} {identity:<34} {a or '(new)'}"
                     + ("" if a == b else f"  now {b or '(removed)'}"))
           if now != committed:
-              print("\nResolving changed the dependency graph. If that is "
+              print("\n--- resolved file, to commit if this change is intended ---")
+              print(open(path).read())
+              print("Resolving changed the dependency graph. If that is "
                     "intended, commit the updated Package.resolved; the point of "
                     "committing it is that a bump is a decision, not a surprise.",
                     file=sys.stderr)
               sys.exit(1)
           print(f"\nOK  {len(now)} packages, unchanged")
           PY
-
-      - name: Build for generic iOS device (arm64, unsigned)
-        run: |
-          set -o pipefail
-          xcodebuild -project src/ios/Minis.xcodeproj \
-                     -scheme Minis \
-                     -configuration Release \
-                     -destination 'generic/platform=iOS' \
-                     -derivedDataPath "$RUNNER_TEMP/dd" \
-                     -skipMacroValidation \
-                     -skipPackagePluginValidation \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
-                     CODE_SIGN_IDENTITY="" \
-                     build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
 
       - name: Package unsigned IPAs
         run: |
