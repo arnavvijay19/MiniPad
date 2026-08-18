@@ -19,6 +19,15 @@ PROJ = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     '..', 'src', 'ios', 'Minis.xcodeproj', 'project.pbxproj')
 
 # (path relative to src/ios, in-app-target, in-test-target)
+#
+# Note on the test target: Xcode makes every resolved package product visible
+# to every target in the project, so `canImport(MLXLLM)` is TRUE in MinisTests
+# even though MinisTests links no MLX product. That means the MLX-gated half of
+# MLXLocalProvider.swift compiles there too, and everything it names has to be
+# in the target — which is why LocalModelStore, LocalModelLifecycle and
+# LocalAgentProviderFactory are compiled into the tests as well. The result is
+# a stronger check, not a workaround: the test target type-checks the on-device
+# path under Swift 6 strict concurrency.
 FILES = [
     ('Agent/Unified/ExecutionTarget.swift', True, True),
     ('Agent/Unified/UnifiedPath.swift', True, True),
@@ -32,9 +41,9 @@ FILES = [
     ('Agent/Unified/RemoteActionApproval.swift', True, False),
     ('Agent/Unified/ToolDisclosureState.swift', True, False),
     ('Agent/Unified/Shortcuts/ShortcutRunCoordinator.swift', True, False),
-    ('Providers/Local/LocalModelStore.swift', True, False),
-    ('Providers/Local/LocalAgentProviderFactory.swift', True, False),
-    ('Providers/Local/LocalModelLifecycle.swift', True, False),
+    ('Providers/Local/LocalModelStore.swift', True, True),
+    ('Providers/Local/LocalAgentProviderFactory.swift', True, True),
+    ('Providers/Local/LocalModelLifecycle.swift', True, True),
     # Puts a downloaded model into the picker. Without it the whole on-device
     # path is unreachable: nothing else creates a ModelEntry with a `local/` id.
     ('Providers/Local/LocalProviderRegistration.swift', True, False),

@@ -518,6 +518,9 @@
 		79AA8F1DB3E448248EF51781 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = F66C2D2CB60C1D7CBA49BABA /* Tokenizers */; };
 		8FE9E6BE87A15102E8D268E5 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 3A773C4CD6EC70590EA46251 /* HuggingFace */; };
 		FE25943A296E28E2D3AF0311 /* LocalProviderRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1E7306F0B2D5126E56E15B /* LocalProviderRegistration.swift */; };
+		D7488EF6459D1B72BA989F91 /* LocalModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B54317CC270E1866C38935 /* LocalModelStore.swift */; };
+		25EF13F392C266727E5022A2 /* LocalAgentProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5A49E324A9B199F12AC686 /* LocalAgentProviderFactory.swift */; };
+		83A771608B2922D753A823BB /* LocalModelLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3BBCA336707C7D3A0F2C634 /* LocalModelLifecycle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1166,6 +1169,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				ThinkingLevelTests.swift,
+				ToolPreflightTests.swift,
 			);
 			target = BB1000070F700000000000AA /* MinisTests */;
 		};
@@ -2592,6 +2596,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83A771608B2922D753A823BB /* LocalModelLifecycle.swift in Sources */,
+				25EF13F392C266727E5022A2 /* LocalAgentProviderFactory.swift in Sources */,
+				D7488EF6459D1B72BA989F91 /* LocalModelStore.swift in Sources */,
 				50D201D7E6EBAC1889015CE7 /* RemoteCommandRisk.swift in Sources */,
 				7645D0C03E3D9A1997F6E7FD /* UnifiedToolRouting.swift in Sources */,
 				1BCC9A2C43663B179F7DD704 /* AgentProvider.swift in Sources */,
