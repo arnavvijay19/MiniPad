@@ -275,6 +275,10 @@ does and reports the server name, the session id, which of the five core verbs
 bind natively and which capabilities will be emulated. If this fails, the
 problem is the network or the server, not the app — and the error says which.
 
+Exercised against `scripts/mock_desktop_commander.py` in four configurations:
+compact surface, full surface, SSE responses, and a refused connection. Add
+`--token <bearer>` if the endpoint wants one.
+
 - [ ] Probe reports the server and its tool surface.
 - [ ] Endpoint added in Settings; "Test connection" reports server name and
       version.
