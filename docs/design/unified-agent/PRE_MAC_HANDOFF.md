@@ -167,11 +167,6 @@ Anything that needs the device or your Apple ID. That is §5.
 
 ## 5. Requires the physical M4 iPad
 
-**Write down what happens in [DEVICE_LOG.md](DEVICE_LOG.md).** It is the only
-record of how the app behaves on hardware, and the only channel between the
-session holding the iPad and the session editing the code — those two cannot
-talk to each other.
-
 The full checklist is [VERIFICATION.md §3](VERIFICATION.md#3-requires-a-physical-m4-ipad)
 — it is long because it is honest, and it is ordered so an early failure makes
 the later items moot. The first-run subset, in order:
