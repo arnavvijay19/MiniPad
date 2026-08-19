@@ -118,7 +118,7 @@ enum RemoteArg: String, CaseIterable, Sendable {
         case .shell:            return ["shell", "interpreter"]
         case .offset:           return ["offset", "start", "start_line", "from"]
         case .length:           return ["length", "limit", "lines", "count"]
-        case .replaceAll:       return ["replace_all", "replaceall", "expected_replacements", "all", "global"]
+        case .replaceAll:       return ["replace_all", "replaceall", "all", "global"]
         }
     }
 
@@ -146,6 +146,8 @@ struct RemoteToolBinding: Sendable, Equatable {
     let argumentNames: [RemoteArg: String]
     /// Whether the bound tool's timeout parameter is in milliseconds.
     let timeoutIsMilliseconds: Bool
+    /// JSON Schema primitive types declared by the endpoint.
+    let argumentTypes: [RemoteArg: String]
 
     func name(for arg: RemoteArg) -> String? { argumentNames[arg] }
 
@@ -158,9 +160,19 @@ struct RemoteToolBinding: Sendable, Equatable {
         var out: [String: MCPValue] = [:]
         for (arg, value) in values {
             guard let name = argumentNames[arg] else { continue }
-            out[name] = value
+            out[name] = coerce(value, to: argumentTypes[arg])
         }
         return out
+    }
+
+    private func coerce(_ value: MCPValue, to declaredType: String?) -> MCPValue {
+        switch declaredType?.lowercased() {
+        case "number", "integer":
+            if let value = value.intValue { return .int(value) }
+            return value
+        default:
+            return value
+        }
     }
 }
 
@@ -224,7 +236,8 @@ enum DesktopCommanderAdapter {
         // Stage 1 — exact name matches, highest-confidence first.
         for verb in RemoteVerb.allCases {
             for candidate in verb.candidateToolNames {
-                guard let tool = byName[candidate], !claimed.contains(tool.name) else { continue }
+                guard let tool = byName[candidate], !claimed.contains(tool.name),
+                      exactNameCompatible(verb: verb, tool: tool) else { continue }
                 bindings[verb] = makeBinding(verb: verb, tool: tool)
                 claimed.insert(tool.name)
                 break
@@ -260,7 +273,9 @@ enum DesktopCommanderAdapter {
 
     private static func makeBinding(verb: RemoteVerb, tool: MCPToolDescriptor) -> RemoteToolBinding {
         let declared = declaredParameterNames(tool)
+        let declaredTypes = declaredParameterTypes(tool)
         var names: [RemoteArg: String] = [:]
+        var types: [RemoteArg: String] = [:]
         var used = Set<String>()
 
         // Resolve in a fixed order so that when two roles share a candidate
@@ -270,6 +285,7 @@ enum DesktopCommanderAdapter {
             for candidate in arg.candidateNames {
                 guard let actual = declared[candidate], !used.contains(actual) else { continue }
                 names[arg] = actual
+                if let type = declaredTypes[actual.lowercased()] { types[arg] = type }
                 used.insert(actual)
                 break
             }
@@ -280,7 +296,8 @@ enum DesktopCommanderAdapter {
             verb: verb,
             toolName: tool.name,
             argumentNames: names,
-            timeoutIsMilliseconds: timeoutName.map(RemoteArg.timeoutIsMilliseconds(parameterName:)) ?? true
+            timeoutIsMilliseconds: timeoutName.map(RemoteArg.timeoutIsMilliseconds(parameterName:)) ?? true,
+            argumentTypes: types
         )
     }
 
@@ -290,6 +307,36 @@ enum DesktopCommanderAdapter {
         var out: [String: String] = [:]
         for key in props.keys { out[key.lowercased()] = key }
         return out
+    }
+
+    /// lowercased declared name → its JSON Schema primitive type.
+    private static func declaredParameterTypes(_ tool: MCPToolDescriptor) -> [String: String] {
+        guard let props = tool.inputSchema?["properties"]?.objectValue else { return [:] }
+        var out: [String: String] = [:]
+        for (key, schema) in props {
+            if let type = schema["type"]?.stringValue { out[key.lowercased()] = type.lowercased() }
+        }
+        return out
+    }
+
+    /// A familiar tool name is only safe when its schema can satisfy the verb.
+    private static func exactNameCompatible(verb: RemoteVerb, tool: MCPToolDescriptor) -> Bool {
+        let all = tool.parameterNames
+        return essentialArguments(for: verb).allSatisfy { arg in
+            arg.candidateNames.contains(where: all.contains)
+        }
+    }
+
+    private static func essentialArguments(for verb: RemoteVerb) -> [RemoteArg] {
+        switch verb {
+        case .startProcess: return [.command]
+        case .readProcessOutput: return [.processID]
+        case .interactWithProcess: return [.processID, .input]
+        case .terminateProcess: return [.processID]
+        case .readFile: return [.path]
+        case .writeFile: return [.path, .content]
+        case .applyPatch: return [.path, .oldString, .newString]
+        }
     }
 
     /// Which roles get first claim on an ambiguous parameter name, per verb.
@@ -333,7 +380,7 @@ enum DesktopCommanderAdapter {
         case .writeFile:
             return hasAny(.path, in: required) && hasAny(.content, in: required) && !hasAny(.oldString, in: all)
         case .applyPatch:
-            return hasAny(.path, in: required) && hasAny(.oldString, in: required) && hasAny(.newString, in: required)
+            return hasAny(.path, in: required) && hasAny(.oldString, in: all) && hasAny(.newString, in: all)
         }
     }
 }
