@@ -171,9 +171,12 @@ Anything that needs the device or your Apple ID. That is §5.
 words to whichever session is handy, or run
 `scripts\windows\Add-DeviceLogEntry.ps1`. It is the only record of how the app
 behaves on hardware, and the only channel between the session holding the iPad
-and the session editing the code; those two cannot talk to each other.
-Anything that needs a code change goes in [HANDOFF.md](HANDOFF.md) instead,
-which is the queue in the other direction.
+and the session editing the code.
+
+Anything that needs a code change is faster said on
+[PR #1](https://github.com/arnavvijay19/MiniPad/pull/1) — the cloud session is
+subscribed to it and wakes on a comment. [HANDOFF.md](HANDOFF.md) is the queue
+for everything that can wait, and the only route in the other direction.
 
 The full checklist is [VERIFICATION.md §3](VERIFICATION.md#3-requires-a-physical-m4-ipad)
 — it is long because it is honest, and it is ordered so an early failure makes

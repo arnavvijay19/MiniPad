@@ -3,9 +3,9 @@
 A fork of OpenMinis adding on-device MLX inference, a Windows execution target
 over MCP, and one agent loop across both machines.
 
-**Two Claude sessions work on this repository, on different machines. They
-cannot talk to each other.** This file is how each one works out which it is
-and what it can actually verify. Read it before doing anything.
+**Two Claude sessions work on this repository, on different machines.** This
+file is how each one works out which it is and what it can actually verify.
+Read it before doing anything.
 
 ---
 
@@ -48,8 +48,18 @@ before the 7-day expiry. Record every result in
 one per direction. Read yours at the start of a session; write to the other's
 before you finish.
 
-Neither session can wake the other. A human carries the signal — so leave
-entries that make sense to someone reading them cold, a week later.
+The two directions do not work the same way.
+
+**Local → cloud is live.** [PR #1](https://github.com/arnavvijay19/MiniPad/pull/1)
+exists for exactly this: the cloud session is subscribed to it, so a comment
+there wakes it with no human in the loop. Use it for anything needing a code
+change. The PR is a draft based on the checkpoint branch and is never merged —
+it is a mailbox, not a proposal.
+
+**Cloud → local is not.** Nothing can wake a session on the Windows PC. The
+cloud session writes to HANDOFF.md and `Sync-MiniPad.ps1` surfaces it on the
+next sync — so write entries that make sense to someone reading them cold, a
+week later.
 
 ---
 

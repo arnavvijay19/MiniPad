@@ -2,10 +2,17 @@
 
 The queue between the two sessions. One section per direction.
 
-They run on different machines and cannot talk to each other, so this file is
-the whole channel. Read your section at the start of a session; write to the
-other one before you finish. A human carries the signal between them — write
-entries that make sense to someone reading them cold.
+They run on different machines. Read your section at the start of a session;
+write to the other one before you finish.
+
+Going **local → cloud** you have a faster route: comment on
+[PR #1](https://github.com/arnavvijay19/MiniPad/pull/1). The cloud session is
+subscribed to it and wakes on the comment. Use this for anything that needs a
+code change; use the queue below for anything that can wait.
+
+Going **cloud → local** there is no such route — nothing can wake the Windows
+session. This file is the whole channel, surfaced by `Sync-MiniPad.ps1`, so
+write entries that make sense to someone reading them cold.
 
 **Format:** newest at the top of each section. `- [ ]` open, `- [x]` done. Sign
 it with the date so a stale item is obvious.
