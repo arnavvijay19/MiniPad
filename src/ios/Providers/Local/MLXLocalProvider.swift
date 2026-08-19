@@ -573,14 +573,34 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
             let task = Task {
                 var assistantText = ""
                 var sawToolCall = false
+                // Qwen 3.5 and friends embed reasoning as a <think>…</think>
+                // prefix of the generated text. Streaming that straight through
+                // put the model's scratchpad in the reply body. The OpenAI path
+                // already solved this; the parser is a pure string state machine
+                // with nothing OpenAI-specific in it, so it is reused verbatim
+                // rather than reimplemented. Non-reasoning output passes through
+                // untouched, so this is safe for every model in the catalog.
+                var think = OpenAIAgentProvider.ThinkPrefixStreamParser()
+
+                func emitParsed(_ out: (thinking: String, visible: String)) {
+                    // Gated like the OpenAI path: reasoning is only streamed
+                    // when the user actually asked for thinking.
+                    if !out.thinking.isEmpty, thinkingLevel.isEnabled {
+                        continuation.yield(.thinkingDelta(out.thinking))
+                    }
+                    if !out.visible.isEmpty {
+                        assistantText += out.visible
+                        continuation.yield(.textDelta(out.visible))
+                    }
+                }
+
                 do {
                     continuation.yield(.contentBlockStart(.text))
                     for try await generation in session.streamDetails(to: toFeed) {
                         try Task.checkCancellation()
                         switch generation {
                         case .chunk(let text):
-                            assistantText += text
-                            continuation.yield(.textDelta(text))
+                            emitParsed(think.consume(text))
                         case .toolCall(let call):
                             sawToolCall = true
                             let id = "local-\(UUID().uuidString.prefix(8))"
@@ -648,6 +668,13 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                             )))
                         }
                     }
+
+                    // Flush whatever the parser is still holding: the trailing
+                    // bytes it withholds in case they turn out to be a partial
+                    // "</think>", and the body text of a turn that ended
+                    // without ever closing its tag. Without this, the tail of
+                    // every reply is silently dropped.
+                    emitParsed(think.finishTurn())
 
                     // Record what this session now holds, including the
                     // assistant's own reply — omitting it would make the next

@@ -69,12 +69,23 @@ enum LocalProviderRegistration {
     @discardableResult
     static func register(_ entry: LocalModelEntry) -> Bool {
         let inst = instance()
+        // `nil`, not `false`. Qwen 3.5 is a hybrid reasoning model and emits
+        // <think>…</think>; declaring `false` hid the thinking control for it
+        // entirely, which is the "hiding the toggle on a reasoning-capable
+        // model makes the feature unreachable" case that
+        // AIChatViewModel.currentModelSupportsReasoning documents.
+        //
+        // `nil` is also the honest answer rather than `true`: the catalog
+        // accepts any Hugging Face repo the user types, so the app cannot know
+        // whether an arbitrary one reasons. Unknown means the user may opt in,
+        // and MLXLocalProvider's think parser passes non-reasoning output
+        // through verbatim, so enabling it on a plain model costs nothing.
         let model = LLMModel(
             id: entry.appModelID,
             displayName: entry.displayName,
             provider: instanceLabel,
             contextWindow: entry.contextWindow,
-            supportsReasoning: false
+            supportsReasoning: nil
         )
         return ProviderConfigStore.shared.addEntry(
             ModelEntry(providerInstanceId: inst.id, model: model, isCustom: true)
