@@ -217,6 +217,10 @@ describes the ten-minute experiment that settles it.
 
 ## 3. Requires a physical M4 iPad
 
+Results go in [DEVICE_LOG.md](DEVICE_LOG.md), which has fill-in templates, a
+helper that writes them for you, and how to get a crash report off the iPad
+without a cable.
+
 Nothing below has been run. Work top to bottom — a failure early makes the
 later items meaningless.
 
