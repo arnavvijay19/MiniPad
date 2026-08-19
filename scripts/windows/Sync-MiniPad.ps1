@@ -28,7 +28,12 @@ param(
     [switch]$NoDownload,
     [string]$Repo   = 'arnavvijay19/MiniPad',
     [string]$Branch = 'claude/pre-mac-ipad-ready',
-    [string]$OutDir = "$env:USERPROFILE\Downloads\MiniPad",
+    # Defaults to <repo>/builds, resolved after the repo root is known. The
+    # previous default was $env:USERPROFILE\Downloads\MiniPad, which assumed a
+    # layout this machine does not have — the checkout is not under the user
+    # profile at all. Repo-relative is correct on any machine, and *.ipa is
+    # already gitignored so nothing here can be committed by accident.
+    [string]$OutDir,
     [string]$Token
 )
 
@@ -36,6 +41,11 @@ $ErrorActionPreference = 'Stop'
 
 # Windows PowerShell 5.1 negotiates TLS 1.0 by default; github.com refuses it.
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+# The console starts in the OEM codepage (IBM437 on this machine), which has no
+# em dash and no arrows - every one in HANDOFF.md printed as a replacement
+# character even after the file was decoded correctly. Rendering and decoding
+# are separate problems; this is the rendering half.
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 # 5.1's Invoke-WebRequest progress bar makes a 40 MB download take minutes.
 $ProgressPreference = 'SilentlyContinue'
 # PowerShell 7.4 turns git's ordinary progress chatter on stderr into a
@@ -55,8 +65,18 @@ try {
     Step "Syncing $Branch"
     $before = (git rev-parse HEAD).Trim()
     git pull --rebase origin $Branch
+    # Capture it now: the rev-parse below is itself a native command and resets
+    # $LASTEXITCODE, so reading it later reports the wrong code (0, i.e. success).
+    $pullExit = $LASTEXITCODE
     $after = (git rev-parse HEAD).Trim()
-    if ($before -eq $after) {
+    if ($pullExit -ne 0) {
+        # HEAD is unchanged when the pull fails too, so the equality check below
+        # reported "already up to date" for a rebase that refused to start -
+        # the queue printed after this would be silently stale.
+        Warn "git pull --rebase FAILED (exit $pullExit) - you are NOT synced."
+        Warn 'Commit or stash your changes, then run this again.'
+        Warn 'Everything below may be out of date.'
+    } elseif ($before -eq $after) {
         Write-Host "    already up to date"
     } else {
         Write-Host "    new commits:" -ForegroundColor Green
@@ -66,7 +86,11 @@ try {
     # --- 2. what is waiting for you -----------------------------------------
     $handoff = Join-Path $root 'docs\design\unified-agent\HANDOFF.md'
     if (Test-Path $handoff) {
-        $lines = Get-Content $handoff
+        # -Encoding UTF8 is required: 5.1's Get-Content defaults to the ANSI
+        # codepage, so every multi-byte character in HANDOFF.md came back as
+        # mojibake ("2026-08-19 A. First install"). 7.x defaults to UTF-8 and
+        # would have hidden this.
+        $lines = Get-Content $handoff -Encoding UTF8
         $start = ($lines | Select-String -SimpleMatch '## For the local session' | Select-Object -First 1).LineNumber
         $end   = ($lines | Select-String -SimpleMatch '## For the cloud session' | Select-Object -First 1).LineNumber
         if ($start -and $end -and $end -gt $start) {
@@ -89,6 +113,8 @@ try {
         }
     }
 } finally { Pop-Location }
+
+if (-not $OutDir) { $OutDir = Join-Path $root 'builds' }
 
 if ($NoDownload) { Write-Host ''; Write-Host 'Done (skipped the download).' -ForegroundColor Green; exit 0 }
 
