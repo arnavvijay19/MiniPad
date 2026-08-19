@@ -123,10 +123,22 @@ struct LocalGenerationSettings: Codable, Hashable, Sendable {
     /// `quantizedKVStart` tokens. Roughly halves cache memory at 8 bits.
     var kvBits: Int?
     var quantizedKVStart: Int
+    /// Penalty applied to tokens already seen in the last
+    /// `repetitionContextSize` tokens.
+    ///
+    /// `GenerateParameters.repetitionPenalty` is `Float?` and defaults to nil,
+    /// which is *no penalty at all*. A 4B model sampled at 0.3 has little
+    /// headroom before it falls into a degenerate loop, and leaving this unset
+    /// produced exactly that: the same paragraph repeated until maxTokens ran
+    /// out. Frontier models hide this failure mode; a small local one does not.
+    var repetitionPenalty: Float?
+    /// How far back the penalty looks. 20 is MLX's own default.
+    var repetitionContextSize: Int
 
     static let `default` = LocalGenerationSettings(
         temperature: 0.7, topP: 0.95, maxTokens: 2048,
-        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048,
+        repetitionPenalty: 1.1, repetitionContextSize: 20
     )
 
     /// Lower temperature for agent work.
@@ -137,7 +149,8 @@ struct LocalGenerationSettings: Codable, Hashable, Sendable {
     /// than a frontier model does.
     static let agentic = LocalGenerationSettings(
         temperature: 0.3, topP: 0.9, maxTokens: 2048,
-        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048,
+        repetitionPenalty: 1.1, repetitionContextSize: 20
     )
 }
 
@@ -531,6 +544,8 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
         parameters.maxKVSize = settings.maxKVSize
         parameters.kvBits = settings.kvBits
         parameters.quantizedKVStart = settings.quantizedKVStart
+        parameters.repetitionPenalty = settings.repetitionPenalty
+        parameters.repetitionContextSize = settings.repetitionContextSize
 
         // Pick the session and the messages to feed it.
         let session: LLMChatSession
