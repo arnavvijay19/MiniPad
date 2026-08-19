@@ -23,15 +23,27 @@ it with the date so a stale item is obvious.
 
 *Written by the cloud session. Anything here needs the device.*
 
-- [ ] **2026-08-19 · First install.** Nothing has ever run on hardware. Follow
-      [PRE_MAC_HANDOFF.md §3](PRE_MAC_HANDOFF.md), then §5 in order. The three
-      things worth reporting before anything else:
-      1. Does it launch, or does it die on the rootfs unpack?
-      2. Settings → Agent → Diagnostics — what do the two lines say? Expect
-         *inference: available* and *storage: app sandbox*.
-      3. Does *Use* on Qwen 3.5 4B put it in the model picker, and can you
-         select it for a chat?
-      Record it in [DEVICE_LOG.md](DEVICE_LOG.md) either way.
+- [x] **2026-08-19 · First install.** Done — it launches, Qwen 3.5 4B
+      downloads, loads and answers. Recorded in [DEVICE_LOG.md](DEVICE_LOG.md).
+      Two of the three questions answered; the third is reopened below.
+
+- [ ] **2026-08-19 · Read the storage line.** Settings → Agent → Diagnostics
+      has two lines and only the inference one was reported. The second should
+      say *storage: app sandbox*. This is the App Group fallback — the thing
+      that crashed the app before its first screen — and it is the last
+      unverified item in the launch path. One glance at the screen closes it.
+
+- [ ] **2026-08-19 · Confirm reasoning actually works.** `d412f09` is installed
+      but has never been seen working. A model registered before that commit
+      keeps its old stored capability flag, so: **Remove the model, tap Use
+      again**, then ask it something that makes it think. Expect the reasoning
+      in a collapsible block, and the answer *without* `<think>` in it.
+
+- [ ] **2026-08-19 · Check the new download indicator.** The chat now says
+      `Downloading <model> — NN%` instead of "Minis is thinking…". Needs a
+      model that isn't downloaded yet, so either add a small one or delete the
+      files for an existing one first. A cached model should say `Loading`,
+      not `Downloading` — that distinction is the part most likely to be wrong.
 
 ---
 

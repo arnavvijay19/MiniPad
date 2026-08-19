@@ -203,7 +203,7 @@ struct UnifiedAgentSettingsView: View {
         switch state {
         case .loaded: return .green
         case .downloaded: return .blue
-        case .downloading: return .yellow
+        case .downloading, .loading: return .yellow
         case .failed: return .red
         case .notDownloaded: return .secondary
         }

@@ -5,9 +5,12 @@ What actually happened on the iPad.
 Nothing else in this repository can know that. CI proves the app builds, the
 tests prove the logic holds, and neither has ever run a model on hardware.
 
-It is also the only channel between the session sitting next to the iPad and
-the session editing the code. Those two run on different machines and cannot
-talk to each other. They can both read this file.
+It is also the permanent record shared by the session sitting next to the iPad
+and the session editing the code. They run on different machines; both can read
+this file. For anything needing a code change, a comment on
+[PR #1](https://github.com/arnavvijay19/MiniPad/pull/1) is faster — it wakes the
+cloud session directly — but say it here too, because the PR is a conversation
+and this is the record.
 
 ---
 
@@ -130,4 +133,61 @@ first 8 characters are enough to identify a build here.
 
 _Newest first._
 
-_Nothing recorded yet. The app has never run on hardware._
+### 2026-08-19 — first install on hardware
+
+Build:    `2ab2ab0` (Ad-hoc sign IPA run #3)
+Variant:  PersonalFree adhoc
+iPadOS:   ?
+
+**Recorded by the cloud session from the local session's report on
+[PR #1](https://github.com/arnavvijay19/MiniPad/pull/1#issuecomment-5341329482).
+Everything below is what the local session observed; the cloud session measured
+none of it.**
+
+What happened:
+  It launches. No crash, no death unpacking the rootfs — the first thing that
+  could have gone wrong didn't. *Use* on Qwen 3.5 4B registers it, it appears
+  in the model picker, it is selectable, and it downloaded (3.06 GB) and
+  loaded. A plain local response came back.
+
+Numbers (? for anything not measured):
+  model                  mlx-community Qwen 3.5 4B (4-bit)
+  download size          3.06 GB
+  download time          ?
+  load time              ?
+  generation tok/s       ?
+  prompt tokens turn 1   ?
+  prompt tokens turn 2   ?
+
+Diagnostics screen:
+  On-device inference    available
+  Workspace storage      NOT REPORTED
+
+The storage line was not read off the screen, so **the App Group sandbox
+fallback remains unverified on hardware.** It is the one thing on this screen
+that has crashed the app before, and it is still unconfirmed.
+
+Found on device, both fixed and in the signed build:
+
+* `6fcde30` — no repetition penalty. `GenerateParameters.repetitionPenalty` is
+  `Float?` defaulting to nil, meaning *no penalty at all*.
+  `streamAgentMessageClamped` set temperature, topP, maxTokens and the KV
+  fields but never that one, and Qwen 3.5 4B at temperature 0.3 fell into a
+  degenerate loop restating one definition until maxTokens ran out.
+* `d412f09` — reasoning rendered as the reply. Local chunks went straight to
+  `.textDelta`, so Qwen's `<think>` scratchpad was the answer;
+  `LocalProviderRegistration` also hardcoded `supportsReasoning: false`, hiding
+  the control that would have turned it off.
+
+**Not yet confirmed on device:** the reasoning path is built and installed but
+has not been seen working. Models registered before `d412f09` keep the old
+stored capability flag and need Remove + *Use* again.
+
+Also observed: *Use* only registers a model — the weights arrive on **first
+send**, and the chat showed "Minis is thinking…" for the whole multi-gigabyte
+download with no progress. It reads exactly like a hang and was taken for one.
+The progress bar existed only on the settings row. Fixed in the chat indicator
+after this report; unverified on device.
+
+Still untested: local file tool, iPad terminal, native Reminder, the Windows
+backend end-to-end from the app, and any mixed iPad+Windows workflow.

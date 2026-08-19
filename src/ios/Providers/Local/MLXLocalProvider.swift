@@ -391,8 +391,15 @@ actor LocalModelRuntime {
 
         // A multi-gigabyte download with no visible progress reads as a hang,
         // and the user cannot tell it from one. Report into the store so the
-        // settings row shows a bar.
-        await MainActor.run { LocalModelStore.shared.setState(.downloading(fraction: 0), repoID: repoID) }
+        // settings row shows a bar and the chat indicator says what is going on.
+        //
+        // Checked once, here, rather than in the view: `isDownloaded` scans the
+        // cache directory, and the view re-renders on every progress tick.
+        let alreadyOnDisk = await MainActor.run { LocalModelStore.shared.isDownloaded(repoID) }
+        await MainActor.run {
+            LocalModelStore.shared.setState(
+                alreadyOnDisk ? .loading : .downloading(fraction: 0), repoID: repoID)
+        }
 
         // Cap MLX's buffer cache. Without this the allocator keeps freed
         // buffers around, which on a memory-limited device reads to the OS as
@@ -410,6 +417,10 @@ actor LocalModelRuntime {
                 configuration: configuration,
                 progressHandler: { p in
                     progress?(p.fractionCompleted)
+                    // The Hub still reports progress while verifying files it
+                    // already has. Letting that through would relabel a cached
+                    // load as a download partway in.
+                    guard !alreadyOnDisk else { return }
                     Task { @MainActor in
                         LocalModelStore.shared.setState(
                             .downloading(fraction: p.fractionCompleted), repoID: repoID)
