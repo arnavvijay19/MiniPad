@@ -8,7 +8,7 @@
     cloud session says it has pushed something.
 
     It does four things:
-      1. git pull --rebase (never force, never clobber — the two sessions share
+      1. git pull --rebase (never force, never clobber - the two sessions share
          this branch)
       2. prints the open items from the "For the local session" section of
          HANDOFF.md
@@ -30,7 +30,7 @@ param(
     [string]$Branch = 'claude/pre-mac-ipad-ready',
     # Defaults to <repo>/builds, resolved after the repo root is known. The
     # previous default was $env:USERPROFILE\Downloads\MiniPad, which assumed a
-    # layout this machine does not have — the checkout is not under the user
+    # layout this machine does not have - the checkout is not under the user
     # profile at all. Repo-relative is correct on any machine, and *.ipa is
     # already gitignored so nothing here can be committed by accident.
     [string]$OutDir,
@@ -184,7 +184,7 @@ if (Test-Path $sumFile) {
     $actual   = (Get-FileHash -Algorithm SHA256 $ipa).Hash.ToLower()
     if ($actual -ne $expected.ToLower()) { throw "Checksum mismatch.`n  expected $expected`n  got      $actual" }
     Write-Host "    sha256 $actual  OK"
-} else { Warn 'No .sha256 beside the ipa — skipped verification.' }
+} else { Warn 'No .sha256 beside the ipa - skipped verification.' }
 
 Write-Host ''
 Write-Host "  NEW BUILD: $ipa" -ForegroundColor Green

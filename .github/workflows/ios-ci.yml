@@ -11,6 +11,16 @@ on:
   push:
     branches:
       - claude/pre-mac-ipad-ready
+    # Skipped only when EVERY changed file matches — a commit touching both a
+    # doc and a Swift file still builds. These paths cannot affect the Xcode
+    # build: prose, and PowerShell that CI never runs. A macOS runner costs
+    # ~25 minutes and is billed at ten times the Linux rate, and the queue is
+    # serial (`cancel-in-progress: false` below), so a docs commit landing
+    # during a build used to delay the next real one by a full cycle.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'scripts/windows/**'
   workflow_dispatch:
     inputs:
       skip_native:

@@ -89,6 +89,13 @@ command, and zsign-derived re-signers can only overwrite an existing one.
 **`Package.resolved` is committed and CI fails if resolving changes it.** A
 dependency bump is a decision, not a surprise.
 
+**Windows scripts stay ASCII-only.** `scripts/windows/*.ps1` has no BOM, so
+Windows PowerShell 5.1 parses it as CP1252. A UTF-8 em dash inside a
+double-quoted string decodes to a curly quote and silently terminates the
+string — the file stops meaning what it says, with no error at the dash. The
+local session hit this; the files are ASCII now, so keep them that way rather
+than reasoning about which quoting style survives.
+
 ---
 
 ## Before you push
