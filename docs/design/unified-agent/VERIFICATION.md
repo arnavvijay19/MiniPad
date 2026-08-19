@@ -220,6 +220,8 @@ describes the ten-minute experiment that settles it.
 Results go in [DEVICE_LOG.md](DEVICE_LOG.md), which has fill-in templates, a
 helper that writes them for you, and how to get a crash report off the iPad
 without a cable.
+Anything that turns out to need a code change belongs in
+[HANDOFF.md](HANDOFF.md), which the session that owns the code reads first.
 
 Nothing below has been run. Work top to bottom — a failure early makes the
 later items meaningless.

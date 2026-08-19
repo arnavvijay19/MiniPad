@@ -12,6 +12,7 @@
 > * [Pre-Mac handoff](docs/design/unified-agent/PRE_MAC_HANDOFF.md) — how to build, sign and install from Windows with a free Apple ID
 > * [Free developer capabilities](docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md) — exactly what a free Apple account costs you
 > * [Architecture](docs/design/unified-agent/ARCHITECTURE.md) · [Verification](docs/design/unified-agent/VERIFICATION.md) · [Device log](docs/design/unified-agent/DEVICE_LOG.md)
+> * [Handoff](docs/design/unified-agent/HANDOFF.md) — the queue between the session that edits the code and the one holding the iPad; [CLAUDE.md](CLAUDE.md) explains which is which
 
 **Your private, on-device AI agent.**
 
