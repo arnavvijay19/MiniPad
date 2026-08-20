@@ -29,6 +29,54 @@
 
 import Foundation
 
+/// Compact, allow-listed bridge from one model-facing tool to Windows MCP's
+/// ten native tools. The model never receives the ten upstream schemas.
+enum WindowsControlBridge {
+    struct Request: Sendable, Equatable {
+        let toolName: String
+        let arguments: [String: MCPValue]
+    }
+
+    enum Problem: Error, LocalizedError, Equatable {
+        case missingTool
+        case unsupportedTool(String)
+        case invalidArgumentsJSON
+        case argumentsMustBeObject
+
+        var errorDescription: String? {
+            switch self {
+            case .missingTool: return "windows_control needs a `tool`."
+            case .unsupportedTool(let tool): return "Unsupported Windows MCP tool `\(tool)`."
+            case .invalidArgumentsJSON: return "`arguments_json` must be valid JSON."
+            case .argumentsMustBeObject: return "`arguments_json` must encode a JSON object."
+            }
+        }
+    }
+
+    static let toolNames: [String: String] = [
+        "app": "App", "powershell": "PowerShell", "filesystem": "FileSystem",
+        "snapshot": "Snapshot", "screenshot": "Screenshot", "click": "Click",
+        "type": "Type", "scroll": "Scroll", "move": "Move", "shortcut": "Shortcut",
+    ]
+
+    static func parse(_ args: [String: Any]) throws -> Request {
+        guard let rawTool = args["tool"] as? String,
+              !rawTool.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw Problem.missingTool
+        }
+        let key = rawTool.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard let toolName = toolNames[key] else { throw Problem.unsupportedTool(rawTool) }
+        let rawJSON = ((args["arguments_json"] as? String) ?? "{}")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = (rawJSON.isEmpty ? "{}" : rawJSON).data(using: .utf8),
+              let decoded = try? JSONSerialization.jsonObject(with: data) else {
+            throw Problem.invalidArgumentsJSON
+        }
+        guard let object = decoded as? [String: Any] else { throw Problem.argumentsMustBeObject }
+        return Request(toolName: toolName, arguments: object.mapValues(MCPValue.from))
+    }
+}
+
 // MARK: - Verbs
 
 /// The operations the unified executor needs from a remote host.
