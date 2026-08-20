@@ -461,3 +461,35 @@ final class OutputClipperTests: XCTestCase {
         XCTAssertTrue(truncated)
     }
 }
+
+
+// MARK: - Compact Windows MCP bridge
+
+final class WindowsControlBridgeTests: XCTestCase {
+    func testMapsToolNameAndPreservesTypedArguments() throws {
+        let request = try WindowsControlBridge.parse([
+            "tool": "Snapshot",
+            "arguments_json": #"{"use_ui_tree":true,"display":[1,2],"width_reference_line":800}"#,
+        ])
+        XCTAssertEqual(request.toolName, "Snapshot")
+        XCTAssertEqual(request.arguments["use_ui_tree"], .bool(true))
+        XCTAssertEqual(request.arguments["display"], .array([.int(1), .int(2)]))
+        XCTAssertEqual(request.arguments["width_reference_line"], .int(800))
+    }
+
+    func testEmptyArgumentsDefaultToObject() throws {
+        let request = try WindowsControlBridge.parse(["tool": "screenshot"])
+        XCTAssertEqual(request.toolName, "Screenshot")
+        XCTAssertTrue(request.arguments.isEmpty)
+    }
+
+    func testRejectsUnknownTool() {
+        XCTAssertThrowsError(try WindowsControlBridge.parse(["tool": "delete_everything"]))
+    }
+
+    func testRejectsNonObjectArguments() {
+        XCTAssertThrowsError(try WindowsControlBridge.parse([
+            "tool": "click", "arguments_json": "[1,2]",
+        ]))
+    }
+}

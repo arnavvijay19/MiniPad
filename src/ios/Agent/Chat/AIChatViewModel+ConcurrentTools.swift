@@ -215,6 +215,26 @@ extension AIChatViewModel {
 
         do {
         switch tu.name {
+        case "windows_control":
+            if let remote = await UnifiedToolRouter.shared.routeIfRemote(
+                toolName: tu.name, argsJSON: argsJson
+            ) {
+                let (redactedRemote, remoteHits) = EnvVarRedactor.redactIfEnabled(remote.output)
+                if remoteHits > 0 {
+                    ctLogger.info("[EnvVarRedact] windows_control: masked \(remoteHits) env-var value(s)")
+                }
+                toolOutput = redactedRemote
+                toolSuccess = remote.success
+                toolImageData = remote.imageData
+                toolImageMimeType = remote.imageMimeType
+                if msgIdx < messages.count, blockIdx < messages[msgIdx].blocks.count {
+                    messages[msgIdx].blocks[blockIdx].content = redactedRemote
+                }
+            } else {
+                toolOutput = "Error: no remote Windows endpoint is configured."
+                toolSuccess = false
+            }
+
         case "shell_execute":
             let (command, timeout, delay) = parseToolInput(from: argsJson)
 
@@ -756,6 +776,18 @@ extension AIChatViewModel {
         // Create snapshot from tool output.
         let snapshot: ToolSnapshot
         switch tu.name {
+        case "windows_control":
+            if let imageData = toolImageData, let sid = sessionId {
+                let mime = toolImageMimeType ?? Self.detectImageMime(imageData)
+                let ref = await ChatStore.shared.saveMedia(
+                    data: imageData, mimeType: mime, sessionId: sid,
+                    originalFileName: "windows_screenshot.png", subdir: "windows",
+                    linuxPath: nil
+                )
+                snapshot = ToolSnapshot(type: .image, text: toolOutput, mediaRef: ref, duration: toolDuration)
+            } else {
+                snapshot = ToolSnapshot(type: .text, text: toolOutput, mediaRef: nil, duration: toolDuration)
+            }
         case "browser_use":
             if let imagePath = (msgIdx < messages.count && blockIdx < messages[msgIdx].blocks.count)
                 ? messages[msgIdx].blocks[blockIdx].imageFilePath : nil,

@@ -104,6 +104,15 @@ enum ToolSurfacePolicy {
             ]
         ),
         DeferredCapability(
+            toolName: "windows_control",
+            hint: "control the Windows desktop",
+            triggers: [
+                "windows", "on my pc", "on the pc", "desktop", "window", "open app",
+                "switch app", "click", "mouse", "type on", "screenshot", "screen shot",
+                "shortcut", "ui tree", "snapshot",
+            ]
+        ),
+        DeferredCapability(
             toolName: "memory_get",
             hint: "recall notes",
             triggers: [
