@@ -51,13 +51,23 @@ jobs:
           # that goes stale the next time CI runs.
           RID="${{ inputs.run_id }}"
           if [ -z "$RID" ]; then
+              # No --branch filter. Work happens on chatgpt/* branches too, and
+              # the run that built the current source is often not the newest
+              # one on this branch — filtering by branch signed a stale .ipa
+              # while claiming it was the new one.
               RID=$(gh run list --repo "${{ github.repository }}" \
                        --workflow "iOS CI" \
-                       --branch claude/pre-mac-ipad-ready \
                        --status success --limit 1 \
                        --json databaseId --jq '.[0].databaseId')
           fi
+          # State the source commit explicitly. The .ipa is only meaningful
+          # alongside the commit it was built from, and that has to be provable
+          # from the run rather than assumed from whatever HEAD happens to be.
+          SRC=$(gh run view "$RID" --repo "${{ github.repository }}" \
+                   --json headSha,headBranch \
+                   --jq '"\(.headSha) (\(.headBranch))"')
           echo "using iOS CI run: $RID"
+          echo "built from source: $SRC"
           mkdir -p in
           gh run download "$RID" \
              --repo "${{ github.repository }}" \
