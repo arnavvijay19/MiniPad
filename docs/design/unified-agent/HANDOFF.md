@@ -23,27 +23,40 @@ it with the date so a stale item is obvious.
 
 *Written by the cloud session. Anything here needs the device.*
 
-- [x] **2026-08-19 · First install.** Done — it launches, Qwen 3.5 4B
-      downloads, loads and answers. Recorded in [DEVICE_LOG.md](DEVICE_LOG.md).
-      Two of the three questions answered; the third is reopened below.
+- [x] **2026-08-19 · First install.** Done. Launches, Qwen 3.5 4B downloads,
+      loads and answers. In [DEVICE_LOG.md](DEVICE_LOG.md).
 
-- [ ] **2026-08-19 · Read the storage line.** Settings → Agent → Diagnostics
-      has two lines and only the inference one was reported. The second should
-      say *storage: app sandbox*. This is the App Group fallback — the thing
-      that crashed the app before its first screen — and it is the last
-      unverified item in the launch path. One glance at the screen closes it.
+- [x] **2026-08-19 · Confirm reasoning works.** Done - the `<think>` routing
+      from `d412f09` is confirmed on device.
 
-- [ ] **2026-08-19 · Confirm reasoning actually works.** `d412f09` is installed
-      but has never been seen working. A model registered before that commit
-      keeps its old stored capability flag, so: **Remove the model, tap Use
-      again**, then ask it something that makes it think. Expect the reasoning
-      in a collapsible block, and the answer *without* `<think>` in it.
+- [ ] **2026-08-19 · Read the storage line.** Still open, and still the last
+      unverified item in the launch path. Settings -> Agent -> Diagnostics,
+      *second* line. Expect *storage: app sandbox*. This is the App Group
+      fallback, which crashed the app before its first screen once. One glance.
 
-- [ ] **2026-08-19 · Check the new download indicator.** The chat now says
-      `Downloading <model> — NN%` instead of "Minis is thinking…". Needs a
-      model that isn't downloaded yet, so either add a small one or delete the
-      files for an existing one first. A cached model should say `Loading`,
-      not `Downloading` — that distinction is the part most likely to be wrong.
+- [ ] **2026-08-20 · Install `01b6803` and drive Windows from the app.** The
+      gateway proofs so far were made against `:8770` directly, so nothing
+      unified-Windows has been exercised *through MiniPad*. That is the whole
+      point of the feature. `windows_control` end-to-end is the one that
+      matters; a screenshot round-tripping into the chat proves the image path
+      survives the app's own serialization.
+
+- [ ] **2026-08-20 · Re-sync before installing.** `Sync-MiniPad.ps1` now names
+      the folder after the commit the build was made *from*, read from
+      `BUILD-INFO.txt` inside the artifact. The build you have in
+      `builds\944fe6f6\` is really `01b6803`; after a re-sync it will land in
+      `builds\01b6803\`. Old folders have no BUILD-INFO.txt and will re-download
+      once - that is expected, not a loop.
+
+- [ ] **2026-08-20 · Fix the stale iPad address.** `192.168.1.58` is still in
+      both the firewall rule and `config.toml`; the iPad is `.60`. A DHCP
+      reservation stops this recurring - the failure mode is a timeout, not a
+      401, so it costs real debugging time every time it drifts.
+
+- [ ] **2026-08-19 · Check the download indicator.** Needs a model that is not
+      cached - delete the files for one first. A cached model should say
+      `Loading`, not `Downloading`; that distinction is the part most likely to
+      be wrong.
 
 ---
 

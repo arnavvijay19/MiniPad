@@ -154,23 +154,63 @@ if (-not $artifact) { Warn "That run produced no 'ipa-adhoc' artifact."; exit 0 
 if ($artifact.expired)  { Warn 'The artifact has expired (they last 14 days). Re-run the workflow.'; exit 0 }
 
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-$stamp   = $run.head_sha.Substring(0, 8)
-$destDir = Join-Path $OutDir $stamp
-$ipa     = Join-Path $destDir 'MiniPad-PersonalFree-adhoc.ipa'
 
-if (Test-Path $ipa) {
-    Write-Host "    already downloaded: $ipa" -ForegroundColor Green
+# Name the folder after the commit the .ipa was BUILT from, not the commit that
+# signed it. Those differ whenever the source went green on another branch: the
+# signing run rides on this branch's HEAD while the app inside is an entirely
+# different commit. A folder named for the signing commit says the build is
+# something it is not, which is the exact class of bug the branch-filter fix
+# addressed on the CI side.
+#
+# The source sha lives in BUILD-INFO.txt inside the artifact, so it is not
+# knowable until after the download. The signing run id IS knowable now, and is
+# recorded in every folder we have already unpacked - so "do I have this
+# already" is answered by searching those, not by guessing a folder name.
+# Match on signing_run, not ios_ci_run: re-signing the same source produces a
+# new signing run and a genuinely new .ipa, and the user has to re-sideload it.
+$existing = Get-ChildItem $OutDir -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName 'BUILD-INFO.txt') } |
+    Where-Object {
+        (Get-Content (Join-Path $_.FullName 'BUILD-INFO.txt') -Encoding UTF8) -match "^signing_run: $($run.id)$"
+    } | Select-Object -First 1
+
+if ($existing) {
+    Write-Host "    already downloaded: $($existing.FullName)" -ForegroundColor Green
     Write-Host ''
     Write-Host 'Nothing new to install.' -ForegroundColor Green
     exit 0
 }
 
 Step "Downloading $([math]::Round($artifact.size_in_bytes / 1MB, 1)) MB"
-$zip = Join-Path $OutDir "ipa-adhoc-$stamp.zip"
+$zip     = Join-Path $OutDir "ipa-adhoc-$($run.id).zip"
+$staging = Join-Path $OutDir ".staging-$($run.id)"
 Invoke-WebRequest -Uri $artifact.archive_download_url -Headers $headers -OutFile $zip
-if (Test-Path $destDir) { Remove-Item -Recurse -Force $destDir }
-Expand-Archive -Path $zip -DestinationPath $destDir -Force
+if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+Expand-Archive -Path $zip -DestinationPath $staging -Force
 Remove-Item $zip
+
+# Read the provenance before deciding where this lands.
+$infoPath = Join-Path $staging 'BUILD-INFO.txt'
+if (Test-Path $infoPath) {
+    $info   = Get-Content $infoPath -Encoding UTF8
+    $srcSha = ($info | Where-Object { $_ -match '^source_sha: ' }) -replace '^source_sha: ', ''
+    $srcBr  = ($info | Where-Object { $_ -match '^source_branch: ' }) -replace '^source_branch: ', ''
+} else {
+    # An .ipa signed before the workflow emitted provenance. Fall back to the
+    # old behaviour rather than failing, but say so - the folder name is a
+    # guess in this case, and a wrong guess is what we are trying to stop.
+    Warn 'No BUILD-INFO.txt in the artifact (signed before provenance was added).'
+    Warn 'Falling back to the signing commit for the folder name, which may not'
+    Warn 'be the commit this build was made from.'
+    $srcSha = $run.head_sha
+    $srcBr  = $run.head_branch
+}
+
+$stamp   = $srcSha.Substring(0, 8)
+$destDir = Join-Path $OutDir $stamp
+$ipa     = Join-Path $destDir 'MiniPad-PersonalFree-adhoc.ipa'
+if (Test-Path $destDir) { Remove-Item -Recurse -Force $destDir }
+Move-Item $staging $destDir
 
 if (-not (Test-Path $ipa)) {
     Warn "MiniPad-PersonalFree-adhoc.ipa not in the artifact. Found: $((Get-ChildItem $destDir).Name -join ', ')"
@@ -188,7 +228,7 @@ if (Test-Path $sumFile) {
 
 Write-Host ''
 Write-Host "  NEW BUILD: $ipa" -ForegroundColor Green
-Write-Host "  commit $stamp   $([math]::Round((Get-Item $ipa).Length / 1MB, 1)) MB"
+Write-Host "  built from $stamp ($srcBr)   $([math]::Round((Get-Item $ipa).Length / 1MB, 1)) MB"
 Write-Host ''
 Write-Host '  Re-sideload it: drop it into Sideloadly, same Apple ID, Start.' -ForegroundColor Cyan
 Write-Host '  Then record what it does with .\scripts\windows\Add-DeviceLogEntry.ps1' -ForegroundColor Cyan

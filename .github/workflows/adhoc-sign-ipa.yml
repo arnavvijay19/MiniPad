@@ -63,11 +63,28 @@ jobs:
           # State the source commit explicitly. The .ipa is only meaningful
           # alongside the commit it was built from, and that has to be provable
           # from the run rather than assumed from whatever HEAD happens to be.
-          SRC=$(gh run view "$RID" --repo "${{ github.repository }}" \
-                   --json headSha,headBranch \
-                   --jq '"\(.headSha) (\(.headBranch))"')
+          SRC_SHA=$(gh run view "$RID" --repo "${{ github.repository }}" \
+                       --json headSha --jq '.headSha')
+          SRC_BRANCH=$(gh run view "$RID" --repo "${{ github.repository }}" \
+                          --json headBranch --jq '.headBranch')
           echo "using iOS CI run: $RID"
-          echo "built from source: $SRC"
+          echo "built from source: $SRC_SHA ($SRC_BRANCH)"
+          # Carried into the artifact, not just the log. A consumer that can
+          # only see the artifact — Sync-MiniPad.ps1 names its download folder
+          # from this — would otherwise have to guess, and its only available
+          # guess is this signing run's own commit, which is a different commit
+          # entirely whenever the source was built on another branch. That is
+          # the same "looks current, is not" failure the branch filter caused.
+          mkdir -p artifacts
+          {
+            echo "source_sha: $SRC_SHA"
+            echo "source_branch: $SRC_BRANCH"
+            echo "ios_ci_run: $RID"
+            echo "signing_run: ${{ github.run_id }}"
+            echo "signed_by_commit: ${{ github.sha }}"
+            echo "signed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > artifacts/BUILD-INFO.txt
+          cat artifacts/BUILD-INFO.txt
           mkdir -p in
           gh run download "$RID" \
              --repo "${{ github.repository }}" \
@@ -162,6 +179,7 @@ jobs:
           path: |
             artifacts/*.ipa
             artifacts/*.sha256
+            artifacts/BUILD-INFO.txt
 
 # Re-run: touch this file and push — the path filter above is the only trigger
 # available from a non-default branch.

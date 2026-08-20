@@ -21,6 +21,10 @@ on:
       - '**/*.md'
       - 'docs/**'
       - 'scripts/windows/**'
+      # The signing job re-signs an .ipa this workflow already built. It cannot
+      # change whether the app compiles, and touching it is the only way to
+      # re-run it, so every re-sign used to cost a full Xcode build too.
+      - '.github/workflows/adhoc-sign-ipa.yml'
   workflow_dispatch:
     inputs:
       skip_native:
