@@ -204,6 +204,6 @@ final class ToolSurfacePolicyTests: XCTestCase {
             alreadyDisclosed: [])
         XCTAssertFalse(names(selection).contains("browser_use"))
         XCTAssertEqual(selection.tools.count, 4)
-        XCTAssertEqual(allTools.count, 8)
+        XCTAssertEqual(allTools.count, 9)
     }
 }
