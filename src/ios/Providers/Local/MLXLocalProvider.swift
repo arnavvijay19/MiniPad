@@ -580,6 +580,10 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
         }
 
         let conversationID = self.conversationID
+        // Resolved out here, like conversationID: the stream closure is
+        // @Sendable and capturing self to read repoID would be a concurrency
+        // error rather than a convenience.
+        let promptOpensThinking = LocalModelEntry.promptOpensThinking(repoID: repoID)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var assistantText = ""
@@ -592,6 +596,20 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                 // rather than reimplemented. Non-reasoning output passes through
                 // untouched, so this is safe for every model in the catalog.
                 var think = OpenAIAgentProvider.ThinkPrefixStreamParser()
+                if promptOpensThinking {
+                    // Qwen 3.x's generation prompt ends with "<think>\n", so the
+                    // opening tag is in the prompt and the model's first emitted
+                    // tag is "</think>". The parser is waiting for an opening tag
+                    // that will never arrive, drops to body mode, and puts the
+                    // whole scratchpad plus a bare "</think>" in the reply.
+                    //
+                    // Hand it the tag the template already consumed. Feeding it
+                    // through consume() rather than adding a new initial state
+                    // keeps one parser with one set of edge cases, and the
+                    // returned pair is empty by construction: a lone opening tag
+                    // produces no thinking and no visible text.
+                    _ = think.consume("<think>")
+                }
 
                 func emitParsed(_ out: (thinking: String, visible: String)) {
                     // Gated like the OpenAI path: reasoning is only streamed
