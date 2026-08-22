@@ -152,6 +152,15 @@ struct MinisApp: App {
                     .overlay(alignment: .top) {
                         BackgroundInterruptionBanner()
                     }
+                    // [unified-exec] The confirmation for a destructive action
+                    // on the PC. A suspended tool call is waiting on it —
+                    // without a presenter, RemoteActionApproval.request() never
+                    // returns — and the prompt is app-global, not something
+                    // ContentView owns. It lived on ContentView's own modifier
+                    // chain until that chain stopped type-checking in
+                    // reasonable time; here it is both cheaper and more
+                    // correctly placed.
+                    .remoteActionApprovalPrompt()
                 AudioPiPCapsule()
                 // Global read-replies capsule — a SINGLE app-root instance driven by
                 // VoiceOutputState, so it persists across chat → home (no per-session
@@ -855,7 +864,7 @@ struct MinisApp: App {
     private static func migrateSharedDirToAppGroup() {
         let fm = FileManager.default
         let library = fm.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        let container = fm.containerURL(forSecurityApplicationGroupIdentifier: "group.com.openminis.app")!
+        let container = AppGroupContainer.root
 
         let migrations: [(source: URL, dest: URL, label: String)] = [
             // Legacy Library/MinisChat/shared → new shared
@@ -900,6 +909,11 @@ struct MinisApp: App {
         let containerURL = fm.containerURL(forSecurityApplicationGroupIdentifier: groupID)
         let containerPath = containerURL?.path ?? "<nil>"
         let resolvedContainer = containerURL?.resolvingSymlinksInPath().path ?? "<nil>"
+        // Which container the agent's durable state is actually in. In a build
+        // signed with a free Apple ID there is no App Group, and this is the
+        // one line that says so plainly rather than leaving someone to wonder
+        // where their files went.
+        lifecycleLog.info("[Container] \(AppGroupContainer.summary)")
         lifecycleLog.info("[FPSyncTrace] appGroup=\(groupID) container=\(containerPath) resolved=\(resolvedContainer)")
 
         let providerRoot = AIChatViewModel.minisAppGroupRoot

@@ -34,6 +34,13 @@ final class MCPWireProtocolTests: XCTestCase {
         XCTAssertEqual(MCPValue.from(["k": "v"]), .object(["k": .string("v")]))
     }
 
+    func testJSONSerializationKeepsOneAsIntegerNotBool() throws {
+        let object = try JSONSerialization.jsonObject(with: Data(#"{"flag":true,"display":[1,2]}"#.utf8))
+        let dict = try XCTUnwrap(object as? [String: Any])
+        XCTAssertEqual(MCPValue.from(dict["flag"] as Any), .bool(true))
+        XCTAssertEqual(MCPValue.from(dict["display"] as Any), .array([.int(1), .int(2)]))
+    }
+
     func testNestedStructuresRoundTrip() throws {
         let original = MCPValue.object([
             "a": .array([.int(1), .string("x"), .bool(false), .null]),

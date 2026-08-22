@@ -2448,6 +2448,10 @@ final class ProviderConfigStore: ObservableObject {
             let kimiBase = customBase ?? "https://api.kimi.com/coding"
             let kimiAppendV1 = customBase == nil ? true : appendV1  // default base …/coding needs /v1 appended
             return try await OpenAIModelsAPI.fetchModels(apiKey: token, baseURL: kimiBase, appendV1Suffix: kimiAppendV1, forceRefresh: forceRefresh, userAgent: nil)
+        case (.local, _):
+            // On-device models are enumerated from the local catalog and
+            // the downloaded set, not from a remote models endpoint.
+            return []
         case (.unsupported, _):
             // Synced from a newer build — can't fetch; keep whatever's stored.
             return []

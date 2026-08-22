@@ -146,7 +146,8 @@ struct ProviderInstance: Identifiable, Codable, Hashable {
         switch providerType {
         case .openAI, .openAIResponses, .openRouter, .xAI, .kimiCode, .anthropic:
             return true
-        case .gemini, .antigravity, .unsupported:
+        // .local runs on this device: no base URL, so no user agent.
+        case .gemini, .antigravity, .local, .unsupported:
             return false
         }
     }
@@ -288,6 +289,12 @@ struct ProviderInstance: Identifiable, Codable, Hashable {
             return ProviderKeychainHelper.loadOAuthToken(
                 instanceId: id, as: KimiTokenStorage.self, caller: "hasAnyCredential"
             ) != nil
+        case .local:
+            // On-device inference needs no credential, and this flag gates
+            // selectability: the model picker and ModelGroupRouter both skip an
+            // instance without one. Returning false here would make local
+            // models unpickable — implemented and unreachable.
+            return true
         case .antigravity, .openRouter, .unsupported:
             // unsupported = synced from a newer build; no usable credential here.
             // antigravity stores its token via AntigravityOAuthManager (no

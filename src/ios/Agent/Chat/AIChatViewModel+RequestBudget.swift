@@ -241,23 +241,24 @@ extension AIChatViewModel {
             .appendingPathComponent("browser", isDirectory: true)
     }
 
-    /// App Group container root for FileProvider-visible directories.
-    /// Everything under this path is exposed to iOS Files via the replicated
-    /// FileProvider extension. Keep ONLY user-facing subdirs (shared, skills,
-    /// memory) here — anything else leaks into "On My iPhone → Minis".
+    /// Root for the FileProvider-visible directories. Keep ONLY user-facing
+    /// subdirs (shared, skills, memory) here — anything else leaks into
+    /// "On My iPhone → Minis".
+    ///
+    /// Everything under this path is exposed to iOS Files by the replicated
+    /// FileProvider extension *when there is an App Group to share*. Without
+    /// the entitlement `AppGroupContainer.root` is a sandbox directory, the
+    /// extension is not installed, and these remain the agent's own files.
     nonisolated static var minisAppGroupRoot: URL {
-        FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerStore.appGroupID
-        )!.appendingPathComponent("MinisFileProvider", isDirectory: true)
+        AppGroupContainer.root.appendingPathComponent("MinisFileProvider", isDirectory: true)
     }
 
-    /// App Group subdirectory for private metadata that must NOT be exposed
-    /// to iOS Files (mounted-folders.json, FileProvider extension logs, etc).
-    /// Sibling of `minisAppGroupRoot` inside the same App Group container.
+    /// Subdirectory for private metadata that must NOT be exposed to iOS Files
+    /// (mounted-folders.json, FileProvider extension logs, etc). Sibling of
+    /// `minisAppGroupRoot` inside whichever container backs it.
     nonisolated static var minisConfigRoot: URL {
-        let url = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerStore.appGroupID
-        )!.appendingPathComponent("MinisConfig", isDirectory: true)
+        let url = AppGroupContainer.root
+            .appendingPathComponent("MinisConfig", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

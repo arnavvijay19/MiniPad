@@ -287,6 +287,26 @@ struct LocalModelEntry: Codable, Hashable, Sendable, Identifiable {
         let repo = String(id.dropFirst(appModelIDPrefix.count))
         return repo.isEmpty ? nil : repo
     }
+
+    /// True when the model's chat template writes the opening `<think>` into
+    /// the *prompt*, so generation begins inside the reasoning block and the
+    /// first tag the model emits is the closing one.
+    ///
+    /// Qwen 3.x ends its generation prompt with `{{- '<think>\n' }}` unless
+    /// `enable_thinking` is explicitly false — verified against
+    /// mlx-community/Qwen3.5-4B-4bit's chat_template.jinja. A parser waiting
+    /// for an opening tag therefore never enters thinking mode, and the
+    /// reasoning plus a bare `</think>` land in the reply body.
+    ///
+    /// Deliberately a narrow allow-list rather than "assume every local model
+    /// pre-opens". Getting it wrong in the other direction is far worse: with
+    /// no closing tag ever emitted, `finishTurn()` returns the whole turn as
+    /// reasoning and the visible reply is empty. A model that does not
+    /// pre-open simply keeps today's behaviour.
+    static func promptOpensThinking(repoID: String) -> Bool {
+        let id = repoID.lowercased()
+        return id.contains("qwen3") || id.contains("qwen-3")
+    }
 }
 
 // MARK: - Seed catalog

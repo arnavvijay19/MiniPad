@@ -40,6 +40,11 @@ final class LocalModelStore: ObservableObject {
         case notDownloaded
         case downloading(fraction: Double)
         case downloaded
+        /// Weights are already on disk and are being read into memory. Distinct
+        /// from `.downloading` because it takes seconds rather than minutes and
+        /// has no fraction to report — calling it a download would be a lie the
+        /// chat indicator then repeats to the user.
+        case loading
         case loaded
         case failed(String)
     }

@@ -997,6 +997,8 @@ struct AddProviderView: View {
             return String(localized: "Sign in with your Kimi Code / Coding Plan subscription.")
         case (.kimiCode, .apiKey):
             return String(localized: "Use a Kimi Coding API key.")
+        case (.local, _):
+            return String(localized: "Runs on this device. No account, no API key, no network.")
         case (.unsupported, _):
             return String(localized: "This provider isn't supported in this app version.")
         }

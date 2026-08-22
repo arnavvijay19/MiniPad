@@ -26,7 +26,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
 
     func testTypicalLANEndpointIsAccepted() {
         // The shape the user actually runs.
-        XCTAssertNil(config("http://192.168.1.38:8766/mcp").validate())
+        XCTAssertNil(config("http://192.168.1.10:8766/mcp").validate())
     }
 
     func testHTTPSIsAlwaysAccepted() {
@@ -46,7 +46,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
 
     func testPrivateRangesAreRecognised() {
         for host in ["127.0.0.1", "localhost", "10.0.0.5", "172.16.0.1", "172.31.255.254",
-                     "192.168.1.38", "169.254.1.1", "100.64.0.1", "desktop.local", "nuc"] {
+                     "192.168.1.10", "169.254.1.1", "100.64.0.1", "desktop.local", "nuc"] {
             XCTAssertTrue(RemoteEndpointConfig.isPrivateOrLocal(host: host), "\(host) should be private")
         }
     }
@@ -83,16 +83,16 @@ final class RemoteEndpointConfigTests: XCTestCase {
     }
 
     func testRedactedURLKeepsEnoughToBeUseful() {
-        let c = config("http://192.168.1.38:8766/mcp")
-        XCTAssertEqual(c.redactedURL, "http://192.168.1.38:8766/mcp")
+        let c = config("http://192.168.1.10:8766/mcp")
+        XCTAssertEqual(c.redactedURL, "http://192.168.1.10:8766/mcp")
     }
 
     // MARK: Host label
 
     func testHostLabelPrefersTheUsersName() {
-        XCTAssertEqual(config("http://192.168.1.38:8766/mcp").hostLabel, "Desktop")
-        let unnamed = RemoteEndpointConfig(displayName: "", urlString: "http://192.168.1.38:8766/mcp")
-        XCTAssertEqual(unnamed.hostLabel, "192.168.1.38")
+        XCTAssertEqual(config("http://192.168.1.10:8766/mcp").hostLabel, "Desktop")
+        let unnamed = RemoteEndpointConfig(displayName: "", urlString: "http://192.168.1.10:8766/mcp")
+        XCTAssertEqual(unnamed.hostLabel, "192.168.1.10")
     }
 
     // MARK: Header resolution
@@ -106,7 +106,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
 
     func testBearerTokenComesFromTheSecretStoreNotTheConfig() {
         // The config is synced and written to disk; the token is not in it.
-        var c = config("http://192.168.1.38:8766/mcp")
+        var c = config("http://192.168.1.10:8766/mcp")
         c.usesBearerToken = true
         var secrets = Secrets()
         secrets.tokens[c.id] = "abc"
@@ -120,7 +120,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
     }
 
     func testEnvironmentPlaceholdersResolve() {
-        var c = config("http://192.168.1.38:8766/mcp")
+        var c = config("http://192.168.1.10:8766/mcp")
         c.headers = ["X-Token": "$$MY_TOKEN", "X-Plain": "literal"]
         var secrets = Secrets()
         secrets.env["MY_TOKEN"] = "resolved"
@@ -133,7 +133,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
     func testUnresolvedPlaceholdersAreReportedNotSentLiterally() {
         // Sending "$$MY_TOKEN" as a credential yields a confusing 401 instead
         // of the actionable "that variable isn't set".
-        var c = config("http://192.168.1.38:8766/mcp")
+        var c = config("http://192.168.1.10:8766/mcp")
         c.headers = ["X-Token": "$$MISSING"]
         let (headers, unresolved) = c.resolvedHeaders(secrets: Secrets())
         XCTAssertNil(headers["X-Token"])
@@ -141,7 +141,7 @@ final class RemoteEndpointConfigTests: XCTestCase {
     }
 
     func testNoBearerHeaderWhenTheEndpointDoesNotUseOne() {
-        let c = config("http://192.168.1.38:8766/mcp")
+        let c = config("http://192.168.1.10:8766/mcp")
         var secrets = Secrets()
         secrets.tokens[c.id] = "stale"
         let (headers, _) = c.resolvedHeaders(secrets: secrets)

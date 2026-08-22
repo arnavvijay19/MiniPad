@@ -4,7 +4,7 @@
 //
 //  The ungated entry point to on-device inference.
 //
-//  `MLXLocalProvider` lives behind `#if canImport(MLXLLM) && canImport(MLXHuggingFace)`,
+//  `MLXLocalProvider` lives behind `#if MINIS_LOCAL_INFERENCE`,
 //  so nothing outside that gate can name the type. The agent loop still has to
 //  be able to ask for a local provider without itself being gated — that is
 //  what this file is for.
@@ -34,7 +34,7 @@ enum LocalAgentProviderFactory {
         conversationID: String,
         settings: LocalGenerationSettings = .agentic
     ) -> AgentProvider {
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        #if MINIS_LOCAL_INFERENCE
         if LocalInferenceAvailability.isSupportedHardware {
             return MLXLocalProvider(
                 repoID: repoID, model: model,

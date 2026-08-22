@@ -130,7 +130,7 @@ final class MCPHTTPClientTests: XCTestCase {
         -> RemoteEndpointConfig {
         RemoteEndpointConfig(
             id: "ep1", displayName: "Desktop",
-            urlString: "http://192.168.1.38:8766/mcp",
+            urlString: "http://192.168.1.10:8766/mcp",
             usesBearerToken: usesBearer, headers: headers
         )
     }

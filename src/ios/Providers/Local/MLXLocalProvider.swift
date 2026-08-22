@@ -6,7 +6,7 @@
 //
 //  WHY IT IS COMPILE-GATED
 //
-//  The whole file is inside `#if canImport(MLXLLM)`. Without the
+//  The runtime half of the file is inside `#if MINIS_LOCAL_INFERENCE`. Without the
 //  `mlx-swift-lm` package added to the project, this compiles to a stub that
 //  reports local inference as unavailable, and the rest of the app is
 //  unaffected — no build break, no dead references, nothing to undo. Adding
@@ -42,7 +42,16 @@ enum LocalInferenceAvailability {
     static var isCompiledIn: Bool {
         // Must match the gate on MLXLocalProvider exactly, or settings would
         // advertise on-device inference that isn't actually compiled in.
-        #if canImport(MLXLLM) && canImport(MLXHuggingFace)
+        //
+        // MINIS_LOCAL_INFERENCE, not canImport(MLXLLM): Xcode makes every
+        // resolved package product visible to every target in the project, so
+        // canImport is true even in a target that links no MLX product and
+        // therefore cannot load the macro plugin behind
+        // #huggingFaceLoadModelContainer. "Visible" and "built against" are
+        // different questions and only the second is a safe gate.
+        // scripts/add_mlx_package.py defines this on exactly the target that
+        // links the packages.
+        #if MINIS_LOCAL_INFERENCE
         return true
         #else
         return false
@@ -66,7 +75,7 @@ enum LocalInferenceAvailability {
     /// Sentence for the settings row when local inference can't be used.
     static var unavailableReason: String? {
         if !isCompiledIn {
-            return "This build was compiled without the on-device inference runtime (MLXLLM + MLXHuggingFace). See BUILDING.md → On-device models."
+            return "This build was compiled without the on-device inference runtime (MLXLLM + MLXHuggingFace). See BUILDING.md → On-device inference."
         }
         if !isSupportedHardware {
             return "On-device models need Apple silicon. The simulator can't run them; use a physical device."
@@ -114,10 +123,22 @@ struct LocalGenerationSettings: Codable, Hashable, Sendable {
     /// `quantizedKVStart` tokens. Roughly halves cache memory at 8 bits.
     var kvBits: Int?
     var quantizedKVStart: Int
+    /// Penalty applied to tokens already seen in the last
+    /// `repetitionContextSize` tokens.
+    ///
+    /// `GenerateParameters.repetitionPenalty` is `Float?` and defaults to nil,
+    /// which is *no penalty at all*. A 4B model sampled at 0.3 has little
+    /// headroom before it falls into a degenerate loop, and leaving this unset
+    /// produced exactly that: the same paragraph repeated until maxTokens ran
+    /// out. Frontier models hide this failure mode; a small local one does not.
+    var repetitionPenalty: Float?
+    /// How far back the penalty looks. 20 is MLX's own default.
+    var repetitionContextSize: Int
 
     static let `default` = LocalGenerationSettings(
         temperature: 0.7, topP: 0.95, maxTokens: 2048,
-        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048,
+        repetitionPenalty: 1.1, repetitionContextSize: 20
     )
 
     /// Lower temperature for agent work.
@@ -128,7 +149,8 @@ struct LocalGenerationSettings: Codable, Hashable, Sendable {
     /// than a frontier model does.
     static let agentic = LocalGenerationSettings(
         temperature: 0.3, topP: 0.9, maxTokens: 2048,
-        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048
+        maxKVSize: 8192, kvBits: 8, quantizedKVStart: 2048,
+        repetitionPenalty: 1.1, repetitionContextSize: 20
     )
 }
 
@@ -306,7 +328,7 @@ enum LocalTranscriptRenderer {
 
 // MARK: - The provider
 
-#if canImport(MLXLLM) && canImport(MLXHuggingFace)
+#if MINIS_LOCAL_INFERENCE
 
 import MLX
 import MLXLLM
@@ -319,6 +341,19 @@ import MLXLMCommon
 import MLXHuggingFace
 import HuggingFace
 import Tokenizers
+
+/// MLX's chat session, disambiguated from this app's own `ChatSession`.
+///
+/// `ChatStore.swift` declares `struct ChatSession: Identifiable, Codable` — a
+/// stored conversation. A type in the current module always wins over one from
+/// an imported module, so an unqualified `ChatSession` here silently resolves
+/// to the app's model. The failure is not a name clash the compiler points at;
+/// it is `argument type 'ModelContainer' does not conform to expected type
+/// 'Decoder'`, because the call landed on `Codable`'s `init(from:)`.
+/// Internal, not private: `LocalModelRuntime`'s methods are internal and
+/// return this type, and Swift refuses to let an internal signature mention a
+/// private one.
+typealias LLMChatSession = MLXLMCommon.ChatSession
 
 /// Holds one loaded model and serialises access to it.
 ///
@@ -333,7 +368,7 @@ actor LocalModelRuntime {
 
     private var container: ModelContainer?
     private var loadedRepoID: String?
-    private var sessions: [String: ChatSession] = [:]
+    private var sessions: [String: LLMChatSession] = [:]
     private var sessionStates: [String: LocalSessionState] = [:]
 
     private init() {}
@@ -356,8 +391,15 @@ actor LocalModelRuntime {
 
         // A multi-gigabyte download with no visible progress reads as a hang,
         // and the user cannot tell it from one. Report into the store so the
-        // settings row shows a bar.
-        await MainActor.run { LocalModelStore.shared.setState(.downloading(fraction: 0), repoID: repoID) }
+        // settings row shows a bar and the chat indicator says what is going on.
+        //
+        // Checked once, here, rather than in the view: `isDownloaded` scans the
+        // cache directory, and the view re-renders on every progress tick.
+        let alreadyOnDisk = await MainActor.run { LocalModelStore.shared.isDownloaded(repoID) }
+        await MainActor.run {
+            LocalModelStore.shared.setState(
+                alreadyOnDisk ? .loading : .downloading(fraction: 0), repoID: repoID)
+        }
 
         // Cap MLX's buffer cache. Without this the allocator keeps freed
         // buffers around, which on a memory-limited device reads to the OS as
@@ -375,6 +417,10 @@ actor LocalModelRuntime {
                 configuration: configuration,
                 progressHandler: { p in
                     progress?(p.fractionCompleted)
+                    // The Hub still reports progress while verifying files it
+                    // already has. Letting that through would relabel a cached
+                    // load as a download partway in.
+                    guard !alreadyOnDisk else { return }
                     Task { @MainActor in
                         LocalModelStore.shared.setState(
                             .downloading(fraction: p.fractionCompleted), repoID: repoID)
@@ -401,7 +447,7 @@ actor LocalModelRuntime {
     /// Drop the model and every derived session.
     ///
     /// Called on model switch, on a memory-pressure warning, and when the user
-    /// unloads manually. Sessions must go with it: a ChatSession holds a KV
+    /// unloads manually. Sessions must go with it: an LLMChatSession holds a KV
     /// cache tied to the container's weights, and keeping one across an unload
     /// is a use-after-free waiting to happen.
     func unload() {
@@ -434,11 +480,11 @@ actor LocalModelRuntime {
         sessionStates[conversationID]
     }
 
-    func session(conversationID: String) -> ChatSession? {
+    func session(conversationID: String) -> LLMChatSession? {
         sessions[conversationID]
     }
 
-    func store(session: ChatSession, state: LocalSessionState, conversationID: String) {
+    func store(session: LLMChatSession, state: LocalSessionState, conversationID: String) {
         sessions[conversationID] = session
         sessionStates[conversationID] = state
     }
@@ -509,16 +555,18 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
         parameters.maxKVSize = settings.maxKVSize
         parameters.kvBits = settings.kvBits
         parameters.quantizedKVStart = settings.quantizedKVStart
+        parameters.repetitionPenalty = settings.repetitionPenalty
+        parameters.repetitionContextSize = settings.repetitionContextSize
 
         // Pick the session and the messages to feed it.
-        let session: ChatSession
+        let session: LLMChatSession
         let toFeed: [Chat.Message]
         switch decision {
         case .appendSuffix(let fromIndex):
             guard let existing = await runtime.session(conversationID: conversationID) else {
                 // State said reuse but the session is gone — rebuild rather
                 // than trusting stale bookkeeping.
-                session = ChatSession(container, instructions: systemPrompt,
+                session = LLMChatSession(container, instructions: systemPrompt,
                                       generateParameters: parameters, tools: toolSpecs)
                 toFeed = Self.chatMessages(Array(rendered))
                 break
@@ -526,24 +574,62 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
             session = existing
             toFeed = Self.chatMessages(Array(rendered[fromIndex...]))
         case .rebuild:
-            session = ChatSession(container, instructions: systemPrompt,
+            session = LLMChatSession(container, instructions: systemPrompt,
                                   generateParameters: parameters, tools: toolSpecs)
             toFeed = Self.chatMessages(rendered)
         }
 
         let conversationID = self.conversationID
+        // Resolved out here, like conversationID: the stream closure is
+        // @Sendable and capturing self to read repoID would be a concurrency
+        // error rather than a convenience.
+        let promptOpensThinking = LocalModelEntry.promptOpensThinking(repoID: repoID)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var assistantText = ""
                 var sawToolCall = false
+                // Qwen 3.5 and friends embed reasoning as a <think>…</think>
+                // prefix of the generated text. Streaming that straight through
+                // put the model's scratchpad in the reply body. The OpenAI path
+                // already solved this; the parser is a pure string state machine
+                // with nothing OpenAI-specific in it, so it is reused verbatim
+                // rather than reimplemented. Non-reasoning output passes through
+                // untouched, so this is safe for every model in the catalog.
+                var think = OpenAIAgentProvider.ThinkPrefixStreamParser()
+                if promptOpensThinking {
+                    // Qwen 3.x's generation prompt ends with "<think>\n", so the
+                    // opening tag is in the prompt and the model's first emitted
+                    // tag is "</think>". The parser is waiting for an opening tag
+                    // that will never arrive, drops to body mode, and puts the
+                    // whole scratchpad plus a bare "</think>" in the reply.
+                    //
+                    // Hand it the tag the template already consumed. Feeding it
+                    // through consume() rather than adding a new initial state
+                    // keeps one parser with one set of edge cases, and the
+                    // returned pair is empty by construction: a lone opening tag
+                    // produces no thinking and no visible text.
+                    _ = think.consume("<think>")
+                }
+
+                func emitParsed(_ out: (thinking: String, visible: String)) {
+                    // Gated like the OpenAI path: reasoning is only streamed
+                    // when the user actually asked for thinking.
+                    if !out.thinking.isEmpty, thinkingLevel.isEnabled {
+                        continuation.yield(.thinkingDelta(out.thinking))
+                    }
+                    if !out.visible.isEmpty {
+                        assistantText += out.visible
+                        continuation.yield(.textDelta(out.visible))
+                    }
+                }
+
                 do {
                     continuation.yield(.contentBlockStart(.text))
                     for try await generation in session.streamDetails(to: toFeed) {
                         try Task.checkCancellation()
                         switch generation {
                         case .chunk(let text):
-                            assistantText += text
-                            continuation.yield(.textDelta(text))
+                            emitParsed(think.consume(text))
                         case .toolCall(let call):
                             sawToolCall = true
                             let id = "local-\(UUID().uuidString.prefix(8))"
@@ -557,8 +643,36 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                             // rather than burning a whole turn — a 4B model
                             // reproduces the same mistake on retry often enough
                             // that rejection alone is not a strategy.
-                            let raw = String(describing: rejection)
-                            for salvaged in LocalToolCallSalvage.salvage(from: raw) {
+                            //
+                            // Salvage reads `rawTextPreview`, which is the
+                            // model's own output, not `String(describing:)` of
+                            // the rejection — that would be Swift's rendering
+                            // of a struct, and the repair rules would be
+                            // parsing punctuation this code emitted.
+                            //
+                            // A truncated preview is refused outright.
+                            // `isPreviewTruncated` means bytes are missing from
+                            // the *middle*, and completing JSON across a hole
+                            // does not recover arguments, it invents them. The
+                            // salvage rules already refuse to close a
+                            // truncation at the end for the same reason.
+                            guard !rejection.isPreviewTruncated else {
+                                assistantText += "\n[a tool call was rejected: "
+                                    + "\(rejection.reason.rawValue), and its output was "
+                                    + "too long to recover safely]"
+                                break
+                            }
+                            for salvaged in LocalToolCallSalvage.salvage(
+                                from: rejection.rawTextPreview
+                            ) {
+                                // The parser may have recovered the name safely
+                                // even when it could not build the whole call.
+                                // Prefer its answer to ours, and never proceed
+                                // when the two disagree — a wrong tool name is
+                                // the one salvage error with real consequences.
+                                if let known = rejection.toolName, known != salvaged.name {
+                                    continue
+                                }
                                 sawToolCall = true
                                 let id = "local-\(UUID().uuidString.prefix(8))"
                                 continuation.yield(.contentBlockStart(
@@ -569,12 +683,27 @@ final class MLXLocalProvider: AgentProvider, @unchecked Sendable {
                                     metadata: nil))
                             }
                         case .info(let info):
+                            // nil, not 0, for the cache fields: there is no
+                            // prompt cache on device to report. KV-cache reuse
+                            // is a different thing entirely — it saves
+                            // *computation*, not billed input tokens — and
+                            // reporting 0 would read as "the cache was checked
+                            // and missed" everywhere this is displayed.
                             continuation.yield(.usage(LLMUsage(
                                 inputTokens: info.promptTokenCount,
-                                outputTokens: info.generationTokenCount
+                                outputTokens: info.generationTokenCount,
+                                cacheCreationInputTokens: nil,
+                                cacheReadInputTokens: nil
                             )))
                         }
                     }
+
+                    // Flush whatever the parser is still holding: the trailing
+                    // bytes it withholds in case they turn out to be a partial
+                    // "</think>", and the body text of a turn that ended
+                    // without ever closing its tag. Without this, the tail of
+                    // every reply is silently dropped.
+                    emitParsed(think.finishTurn())
 
                     // Record what this session now holds, including the
                     // assistant's own reply — omitting it would make the next

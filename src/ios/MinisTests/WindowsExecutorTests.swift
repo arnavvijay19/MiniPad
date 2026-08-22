@@ -10,14 +10,14 @@ import XCTest
 /// with renamed tools, and a degenerate endpoint with only a shell.
 private enum Fixtures {
 
-    static func tool(_ name: String, _ params: [String], required: [String] = []) -> MCPToolDescriptor {
+    static func tool(_ name: String, _ params: [String], required: [String] = [], types: [String: String] = [:]) -> MCPToolDescriptor {
         MCPToolDescriptor(
             name: name,
             description: "",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object(Dictionary(uniqueKeysWithValues:
-                    params.map { ($0, MCPValue.object(["type": .string("string")])) })),
+                    params.map { ($0, MCPValue.object(["type": .string(types[$0] ?? "string")])) })),
                 "required": .array(required.map { .string($0) }),
             ])
         )
@@ -42,6 +42,25 @@ private enum Fixtures {
         tool("list_directory", ["path"], required: ["path"]),
         tool("search_code", ["path", "pattern"], required: ["path", "pattern"]),
         tool("get_config", []),
+    ]
+
+    /// Desktop Commander 0.2.47 as exposed by the real :8765 MCP.
+    /// Its Codex-style `apply_patch` is not MiniPad's string-replacement verb,
+    /// and all process tools require a numeric pid.
+    static let desktopCommander0247: [MCPToolDescriptor] = [
+        tool("start_process", ["command", "cwd", "timeout_ms"], required: ["command"],
+             types: ["timeout_ms": "number"]),
+        tool("read_process_output", ["pid", "length", "offset", "timeout_ms"], required: ["pid"],
+             types: ["pid": "number", "length": "number", "offset": "number", "timeout_ms": "number"]),
+        tool("interact_with_process", ["pid", "input", "timeout_ms"], required: ["pid", "input"],
+             types: ["pid": "number", "timeout_ms": "number"]),
+        tool("force_terminate", ["pid"], required: ["pid"], types: ["pid": "number"]),
+        tool("read_file", ["path", "offset", "length"], required: ["path"],
+             types: ["offset": "number", "length": "number"]),
+        tool("write_file", ["path", "content", "mode"], required: ["path", "content"]),
+        tool("apply_patch", ["patch", "cwd", "check"], required: ["patch"], types: ["check": "boolean"]),
+        tool("edit_block", ["file_path", "old_string", "new_string", "expected_replacements"],
+             required: ["file_path"], types: ["expected_replacements": "number"]),
     ]
 
     /// A fork that renamed everything and uses seconds for timeouts.
@@ -95,6 +114,31 @@ final class DesktopCommanderAdapterTests: XCTestCase {
         }
         XCTAssertTrue(caps.emulated.isEmpty)
         XCTAssertTrue(caps.missing.isEmpty)
+    }
+
+    func testDesktopCommander0247UsesEditBlockInsteadOfCodexApplyPatch() {
+        let caps = DesktopCommanderAdapter.resolve(tools: Fixtures.desktopCommander0247)
+        XCTAssertEqual(caps.binding(.applyPatch)?.toolName, "edit_block")
+        XCTAssertEqual(caps.binding(.terminateProcess)?.toolName, "force_terminate")
+        XCTAssertTrue(caps.supportsInteractiveProcesses)
+        XCTAssertTrue(caps.missing.isEmpty)
+    }
+
+    func testDesktopCommander0247CoercesOpaquePIDToNumber() {
+        let caps = DesktopCommanderAdapter.resolve(tools: Fixtures.desktopCommander0247)
+        let read = caps.binding(.readProcessOutput)!
+        let interact = caps.binding(.interactWithProcess)!
+        let terminate = caps.binding(.terminateProcess)!
+        XCTAssertEqual(read.arguments([.processID: .string("41208")])["pid"], .int(41208))
+        XCTAssertEqual(interact.arguments([.processID: .string("41208")])["pid"], .int(41208))
+        XCTAssertEqual(terminate.arguments([.processID: .string("41208")])["pid"], .int(41208))
+    }
+
+    func testExpectedReplacementsIsNotTreatedAsReplaceAllBoolean() {
+        let caps = DesktopCommanderAdapter.resolve(tools: Fixtures.desktopCommander0247)
+        let patch = caps.binding(.applyPatch)!
+        XCTAssertEqual(patch.toolName, "edit_block")
+        XCTAssertNil(patch.name(for: .replaceAll))
     }
 
     func testRenamedForkStillBinds() {
@@ -415,5 +459,37 @@ final class OutputClipperTests: XCTestCase {
         let (text, truncated) = OutputClipper.clip("abc", limit: 0)
         XCTAssertEqual(text, "")
         XCTAssertTrue(truncated)
+    }
+}
+
+
+// MARK: - Compact Windows MCP bridge
+
+final class WindowsControlBridgeTests: XCTestCase {
+    func testMapsToolNameAndPreservesTypedArguments() throws {
+        let request = try WindowsControlBridge.parse([
+            "tool": "Snapshot",
+            "arguments_json": #"{"use_ui_tree":true,"display":[1,2],"width_reference_line":800}"#,
+        ])
+        XCTAssertEqual(request.toolName, "Snapshot")
+        XCTAssertEqual(request.arguments["use_ui_tree"], .bool(true))
+        XCTAssertEqual(request.arguments["display"], .array([.int(1), .int(2)]))
+        XCTAssertEqual(request.arguments["width_reference_line"], .int(800))
+    }
+
+    func testEmptyArgumentsDefaultToObject() throws {
+        let request = try WindowsControlBridge.parse(["tool": "screenshot"])
+        XCTAssertEqual(request.toolName, "Screenshot")
+        XCTAssertTrue(request.arguments.isEmpty)
+    }
+
+    func testRejectsUnknownTool() {
+        XCTAssertThrowsError(try WindowsControlBridge.parse(["tool": "delete_everything"]))
+    }
+
+    func testRejectsNonObjectArguments() {
+        XCTAssertThrowsError(try WindowsControlBridge.parse([
+            "tool": "click", "arguments_json": "[1,2]",
+        ]))
     }
 }

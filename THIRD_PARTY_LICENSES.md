@@ -21,11 +21,28 @@ Direct packages declared in `src/ios/Minis.xcodeproj`:
 | Package | Version | Repository | License |
 |---|---|---|---|
 | SwiftAnthropic | 2.2.0 (exact) | https://github.com/jamesrochabrun/SwiftAnthropic | **MIT** |
-| swift-cmark (`cmark-gfm`, `cmark-gfm-extensions`) | 0.7.1 | https://github.com/swiftlang/swift-cmark | **BSD-2-Clause** (with some MIT-licensed vendored files, see its `COPYING`) |
+| swift-cmark (`cmark-gfm`, `cmark-gfm-extensions`) | 0.8.0 | https://github.com/swiftlang/swift-cmark | **BSD-2-Clause** (with some MIT-licensed vendored files, see its `COPYING`) |
 | SwiftMath | 1.7.3 | https://github.com/mgriebling/SwiftMath | **MIT** |
 | RealTimeCutVADLibrary | 1.0.14 | https://github.com/helloooideeeeea/RealTimeCutVADLibrary | **MIT** |
+| mlx-swift-lm (`MLXLLM`, `MLXLMCommon`, `MLXHuggingFace`) | pinned to revision `d7dc03d8447e` | https://github.com/ml-explore/mlx-swift-lm | **MIT** (Apple) |
+| mlx-swift (`MLX`, `MLXNN`, `MLXOptimizers`, transitively) | resolved by mlx-swift-lm | https://github.com/ml-explore/mlx-swift | **MIT** (Apple) |
+| swift-transformers (`Tokenizers`) | 1.3.x | https://github.com/huggingface/swift-transformers | **Apache-2.0** |
+| swift-huggingface (`HuggingFace`) | 0.9.x | https://github.com/huggingface/swift-huggingface | **Apache-2.0** |
 
-Transitive packages (pinned in `Package.resolved`), all **Apache-2.0**, maintained by Apple / the Swift Server Workgroup: `async-http-client`, `swift-algorithms`, `swift-asn1`, `swift-async-algorithms`, `swift-atomics`, `swift-certificates`, `swift-collections`, `swift-crypto`, `swift-distributed-tracing`, `swift-http-structured-headers`, `swift-http-types`, `swift-log`, `swift-nio` (+ `-extras`, `-http2`, `-ssl`, `-transport-services`), `swift-numerics`, `swift-service-context`, `swift-service-lifecycle`, `swift-system`.
+mlx-swift-lm is pinned to an exact revision rather than a version range, so
+that `scripts/typecheck_mlx_adapter.sh` and the Xcode build always see the same
+API. `scripts/add_mlx_package.py` is the single place that revision is written.
+
+swift-transformers and swift-huggingface are direct dependencies rather than
+transitive ones because `#huggingFaceLoadModelContainer` is a macro: its
+expansion lands in our source file and names `Tokenizers.AutoTokenizer` and
+`HuggingFace.HubClient`, which the calling target has to link itself.
+
+Transitive packages, all **Apache-2.0**, maintained by Apple / the Swift Server Workgroup: `async-http-client`, `swift-algorithms`, `swift-argument-parser`, `swift-asn1`, `swift-async-algorithms`, `swift-atomics`, `swift-certificates`, `swift-collections`, `swift-configuration`, `swift-crypto`, `swift-distributed-tracing`, `swift-http-structured-headers`, `swift-http-types`, `swift-log`, `swift-nio` (+ `-extras`, `-http2`, `-ssl`, `-transport-services`), `swift-numerics`, `swift-service-context`, `swift-service-lifecycle`, `swift-syntax`, `swift-system`, plus `swift-jinja` and `yyjson` (**MIT**) by way of swift-transformers.
+
+The complete graph — 30 packages with exact versions — is pinned in
+`src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`,
+which is committed. CI fails if resolving changes it.
 
 ## Android — Gradle dependencies
 

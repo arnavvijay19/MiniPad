@@ -2,6 +2,18 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS%20%7C%20Android-lightgrey.svg)](#beta-programme)
+[![iOS CI](https://github.com/arnavvijay19/MiniPad/actions/workflows/ios-ci.yml/badge.svg?branch=claude/pre-mac-ipad-ready)](https://github.com/arnavvijay19/MiniPad/actions/workflows/ios-ci.yml)
+
+> **MiniPad** — a fork adding on-device MLX inference (Qwen 3.5, Gemma 4), a
+> Windows execution target over MCP, and one agent loop across both machines.
+> CI builds an installable unsigned `.ipa` on a hosted macOS runner, so no Mac
+> is needed to get it onto an iPad.
+>
+> * [Mac handoff](docs/design/unified-agent/MAC_HANDOFF.md) — build, sign and install from a Mac, and the two fixes needed before the first build
+> * [Pre-Mac handoff](docs/design/unified-agent/PRE_MAC_HANDOFF.md) — the Windows path, for when the Mac is not to hand
+> * [Free developer capabilities](docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md) — exactly what a free Apple account costs you
+> * [Architecture](docs/design/unified-agent/ARCHITECTURE.md) · [Verification](docs/design/unified-agent/VERIFICATION.md) · [Device log](docs/design/unified-agent/DEVICE_LOG.md)
+> * [Handoff](docs/design/unified-agent/HANDOFF.md) — the queue between the session that edits the code and the one holding the iPad; [CLAUDE.md](CLAUDE.md) explains which is which
 
 **Your private, on-device AI agent.**
 

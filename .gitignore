@@ -61,6 +61,12 @@ Podfile.lock
 .build/
 .swiftpm/
 Package.resolved
+# ...except the app's, which is committed on purpose. Apple's guidance is to
+# commit Package.resolved for an application: it pins the whole transitive
+# graph, so a fresh clone — or a new Mac a year from now — builds against the
+# same versions this was verified with, instead of silently resolving forward.
+# CI fails if resolving changes it.
+!src/ios/Minis.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # macOS
 .DS_Store

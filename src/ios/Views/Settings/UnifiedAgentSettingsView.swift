@@ -26,6 +26,11 @@ struct UnifiedAgentSettingsView: View {
     @State private var addingShortcut = false
     @State private var addingModelRepo = ""
     @State private var addModelError: String?
+    /// Repo ids that already have a ModelEntry, so the row can say so.
+    /// Recomputed on appear and after each change rather than derived in the
+    /// body — `ProviderConfigStore` is not observed here, and reading it every
+    /// body evaluation would walk every entry on every keystroke.
+    @State private var registered: Set<String> = []
     @State private var isRefreshing = false
 
     var body: some View {
@@ -33,10 +38,12 @@ struct UnifiedAgentSettingsView: View {
             localModelsSection
             remoteComputerSection
             shortcutsSection
+            diagnosticsSection
         }
         .navigationTitle("Agent")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            refreshRegistered()
             // Compatibility verdicts are N network round trips, so they are
             // fetched when this screen opens rather than at launch.
             guard models.compatibility.isEmpty else { return }
@@ -46,6 +53,44 @@ struct UnifiedAgentSettingsView: View {
         .sheet(isPresented: $addingEndpoint) { RemoteEndpointFormView(endpoint: nil) }
         .sheet(item: $editingShortcut) { ShortcutFormView(shortcut: $0) }
         .sheet(isPresented: $addingShortcut) { ShortcutFormView(shortcut: nil) }
+    }
+
+    // MARK: - Diagnostics
+
+    /// Two facts that decide whether anything else on this screen can work,
+    /// visible without attaching a debugger.
+    ///
+    /// The container line matters most on a build signed with a free Apple ID:
+    /// there is no App Group, so the workspace lives in the app's own sandbox
+    /// and the Files-app integration is absent. That is expected, and a user
+    /// looking for their files deserves to be told where they are rather than
+    /// left to infer it. See
+    /// docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md.
+    @ViewBuilder
+    private var diagnosticsSection: some View {
+        Section {
+            LabeledContent("On-device inference") {
+                Text(LocalInferenceAvailability.isAvailable ? "available" : "unavailable")
+                    // Color on both sides: `.secondary` alone is a
+                    // HierarchicalShapeStyle and `.red` is a Color, and a
+                    // ternary needs one type.
+                    .foregroundStyle(LocalInferenceAvailability.isAvailable
+                                     ? Color.secondary : Color.red)
+            }
+            LabeledContent("Workspace storage") {
+                Text(AppGroupContainer.isShared ? "shared container" : "app sandbox")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Diagnostics")
+        } footer: {
+            if !AppGroupContainer.isShared {
+                Text("This build was signed without the App Group entitlement, "
+                     + "so the workspace is private to the app and does not appear "
+                     + "in the Files app. Everything else — models, terminal, "
+                     + "skills, memory, the Windows target — is unaffected.")
+            }
+        }
     }
 
     // MARK: - On-device models
@@ -82,6 +127,16 @@ struct UnifiedAgentSettingsView: View {
         }
     }
 
+    private func refreshRegistered() {
+        // Explicit closure rather than passing the method as a value: it is
+        // @MainActor, and handing a MainActor function to a nonisolated
+        // parameter is the kind of thing Swift 5 tolerates and Swift 6 does
+        // not. Calling it here, inside a MainActor method, is unambiguous.
+        registered = Set(models.models
+            .filter { LocalProviderRegistration.isRegistered($0) }
+            .map { $0.repoID })
+    }
+
     @ViewBuilder
     private func modelRow(_ model: LocalModelEntry) -> some View {
         let verdict = models.compatibility[model.repoID]
@@ -96,6 +151,23 @@ struct UnifiedAgentSettingsView: View {
                 Spacer()
                 if let size = model.downloadSizeText {
                     Text(size).font(.caption).foregroundStyle(.secondary)
+                }
+                // The action that makes the whole feature reachable: until a
+                // model has a ModelEntry, nothing in the app can offer it. The
+                // weights download on first use, so this is safe to tap before
+                // anything has been fetched.
+                if registered.contains(model.repoID) {
+                    Label("In picker", systemImage: "checkmark.circle.fill")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("In the model picker")
+                } else if verdict?.isSupported != false {
+                    Button("Use") {
+                        LocalProviderRegistration.register(model)
+                        refreshRegistered()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
                 }
             }
             if let note = model.note {
@@ -112,7 +184,11 @@ struct UnifiedAgentSettingsView: View {
         }
         .swipeActions {
             if !model.isBuiltIn {
-                Button("Remove", role: .destructive) { models.removeModel(repoID: model.repoID) }
+                Button("Remove", role: .destructive) {
+                    LocalProviderRegistration.unregister(model)
+                    models.removeModel(repoID: model.repoID)
+                    refreshRegistered()
+                }
             }
             if models.isDownloaded(model.repoID) {
                 Button("Delete files") { try? models.deleteDownload(repoID: model.repoID) }
@@ -127,7 +203,7 @@ struct UnifiedAgentSettingsView: View {
         switch state {
         case .loaded: return .green
         case .downloaded: return .blue
-        case .downloading: return .yellow
+        case .downloading, .loading: return .yellow
         case .failed: return .red
         case .notDownloaded: return .secondary
         }

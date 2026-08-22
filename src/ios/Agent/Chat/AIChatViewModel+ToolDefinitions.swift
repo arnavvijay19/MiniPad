@@ -51,6 +51,20 @@ extension AIChatViewModel {
             ToolSurfacePolicy.coreToolNames.contains(tool.name) ? withTarget(tool) : tool
         }
 
+        if remoteConfigured {
+            tools.append(AgentToolDefinition(
+                name: "windows_control",
+                description: "Control the configured Windows PC through Windows MCP. Use this for Windows GUI/app interaction; prefer shell_execute/file_* with target='windows' for normal terminal and file work. `tool` maps to one Windows MCP tool. `arguments_json` is the JSON object passed to it. Schemas: app {mode:'launch|resize|switch',name?,window_loc?,window_size?}; powershell {command,timeout?}; filesystem {mode:'read|write|copy|move|delete|list|search|info',path,destination?,content?,pattern?,recursive?,append?,overwrite?,offset?,limit?,encoding?,show_hidden?}; snapshot {use_vision?,use_dom?,use_annotation?,use_ui_tree?,width_reference_line?,height_reference_line?,display?}; screenshot {use_annotation?,width_reference_line?,height_reference_line?,display?}; click {loc?,label?,button?,clicks?}; type {text,loc?,label?,clear?,caret_position?,press_enter?}; scroll {loc?,label?,type?,direction?,wheel_times?}; move {loc?,label?,drag?}; shortcut {shortcut}.",
+                parameters: [
+                    "tool_title": AgentToolParam(type: .string, description: "A concise 5-10 word summary of what this Windows action does, shown to the user."),
+                    "tool": AgentToolParam(type: .string, description: "Windows MCP tool to call.", enumValues: ["app", "powershell", "filesystem", "snapshot", "screenshot", "click", "type", "scroll", "move", "shortcut"]),
+                    "arguments_json": AgentToolParam(type: .string, description: "JSON object for the selected tool. Omit or use {} when that tool needs no arguments."),
+                ],
+                required: ["tool_title", "tool"],
+                propertyOrdering: ["tool_title", "tool", "arguments_json"]
+            ))
+        }
+
         // [unified-shortcuts] Registered only when the user has actually
         // registered a shortcut. A tool the model can never use successfully is
         // worse than no tool: it will try, fail, and burn turns explaining

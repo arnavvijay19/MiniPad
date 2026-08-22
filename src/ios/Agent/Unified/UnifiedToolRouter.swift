@@ -21,6 +21,15 @@ import Foundation
 struct RemoteToolOutcome: Sendable {
     let output: String
     let success: Bool
+    let imageData: Data?
+    let imageMimeType: String?
+
+    init(output: String, success: Bool, imageData: Data? = nil, imageMimeType: String? = nil) {
+        self.output = output
+        self.success = success
+        self.imageData = imageData
+        self.imageMimeType = imageMimeType
+    }
 }
 
 actor UnifiedToolRouter {
@@ -58,6 +67,9 @@ actor UnifiedToolRouter {
         else { return nil }
 
         let endpoint = await MainActor.run { RemoteEndpointStore.shared.activeEndpoint(for: .windows) }
+        if toolName == "windows_control" {
+            return await routeWindowsControl(args: args, endpoint: endpoint)
+        }
         let plan = UnifiedToolRouting.plan(
             toolName: toolName, args: args, remoteAvailable: endpoint != nil)
 
@@ -103,6 +115,32 @@ actor UnifiedToolRouter {
     }
 
     // MARK: Execution
+
+    private func routeWindowsControl(
+        args: [String: Any], endpoint: RemoteEndpointConfig?
+    ) async -> RemoteToolOutcome {
+        guard let endpoint else {
+            return RemoteToolOutcome(output: "Error: no remote computer is configured.", success: false)
+        }
+        do {
+            let request = try WindowsControlBridge.parse(args)
+            let result = try await client(for: endpoint).callTool(
+                name: request.toolName, arguments: request.arguments
+            )
+            let firstImage = result.images.first
+            let imageData = firstImage.flatMap { Data(base64Encoded: $0.base64) }
+            var text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { text = "Windows MCP \(request.toolName) completed on \(endpoint.hostLabel)." }
+            else { text = "[Windows MCP \(request.toolName) on \(endpoint.hostLabel)]\n" + text }
+            if result.images.count > 1 { text += "\n[\(result.images.count) images returned; first attached]" }
+            return RemoteToolOutcome(
+                output: text, success: !result.isError,
+                imageData: imageData, imageMimeType: firstImage?.mimeType
+            )
+        } catch {
+            return RemoteToolOutcome(output: failureText(error, endpoint: endpoint), success: false)
+        }
+    }
 
     private func perform(
         _ plan: RemoteToolPlan,

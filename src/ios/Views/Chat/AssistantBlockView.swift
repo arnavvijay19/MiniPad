@@ -906,6 +906,45 @@ struct TypingIndicator: View {
         let n = SoulStore.cachedMetadata.name.trimmingCharacters(in: .whitespacesAndNewlines)
         return n.isEmpty ? "Minis" : n
     }()
+    /// On-device model state, because the first message sent to a local model
+    /// is the one that fetches its weights. *Use* in settings only registers a
+    /// model; several gigabytes then arrive on first send, and until this was
+    /// surfaced the chat sat on "Minis is thinking…" for the whole download.
+    /// It is indistinguishable from a hang, and was read as one on the first
+    /// device install. The settings row has a progress bar, but nobody is
+    /// looking at settings — they are looking here.
+    ///
+    /// Costs nothing when no local model is involved: `states` is empty and
+    /// the label falls through to the normal one.
+    @ObservedObject private var localModels = LocalModelStore.shared
+
+    /// What the on-device model is doing, when it is doing something slow.
+    ///
+    /// Sorted rather than "first match" so the label cannot flicker between two
+    /// entries across redraws. Only one model loads at a time in practice —
+    /// `LocalModelRuntime.load` unloads the previous one first — so the sort is
+    /// cheap insurance, not a real multiplicity.
+    private var localModelLabel: String? {
+        for (repoID, state) in localModels.states.sorted(by: { $0.key < $1.key }) {
+            let name = localModels.models.first { $0.repoID == repoID }?.displayName ?? repoID
+            switch state {
+            case .downloading(let fraction):
+                let percent = Int((fraction * 100).rounded())
+                // The Hub reports 0 until the first chunk lands. A stationary
+                // "0%" reads as stuck, which is the exact failure this is here
+                // to fix, so say it in words until there is a number worth
+                // showing.
+                return percent > 0
+                    ? "Downloading \(name) — \(percent)%"
+                    : "Downloading \(name)"
+            case .loading:
+                return "Loading \(name)"
+            case .notDownloaded, .downloaded, .loaded, .failed:
+                continue
+            }
+        }
+        return nil
+    }
 
     var body: some View {
         // The thinking-level badge that used to trail this indicator was
@@ -914,7 +953,7 @@ struct TypingIndicator: View {
         // duplicate here was redundant. ThinkingLevelSheetView is unchanged;
         // it's still presented from the nav-bar badge.
         HStack(spacing: 0) {
-            Text("\(soulName) is thinking")
+            Text(localModelLabel ?? "\(soulName) is thinking")
             ForEach(0..<3, id: \.self) { i in
                 Text(".")
                     .offset(y: dotOffsets[i] ? -3 : 1)

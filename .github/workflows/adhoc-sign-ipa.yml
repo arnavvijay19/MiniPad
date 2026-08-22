@@ -1,0 +1,187 @@
+name: Ad-hoc sign IPA
+
+# Sideloadly — and every other zsign-derived re-signer — can only *overwrite* an
+# existing LC_CODE_SIGNATURE load command. It cannot add one, because that would
+# mean relocating __LINKEDIT and rewriting every offset in the binary.
+#
+# `app-build` in ios-ci.yml compiles with CODE_SIGNING_ALLOWED=NO, so the main
+# executable ships with no LC_CODE_SIGNATURE at all. The eight embedded
+# frameworks are vendored pre-signed and keep theirs, which is why only the app
+# binary is affected. Sideloadly rejects the .ipa with "Invalid file" at 0%,
+# before it uploads anything.
+#
+# This job ad-hoc signs an .ipa that iOS CI has already produced, purely so the
+# load command exists for Sideloadly to overwrite. It rebuilds nothing.
+
+# workflow_dispatch alone is not usable here: GitHub only resolves dispatchable
+# workflows from the default branch, and this one deliberately lives on the
+# feature branch. A path-filtered push trigger runs it from here instead —
+# touching this file is the way to re-run it.
+on:
+  push:
+    branches:
+      - claude/pre-mac-ipad-ready
+    paths:
+      - .github/workflows/adhoc-sign-ipa.yml
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "iOS CI run id whose `ipa` artifact should be signed"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  adhoc-sign:
+    name: Ad-hoc sign the PersonalFree IPA
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Download the .ipa iOS CI already built
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # On a push there are no inputs, so fall back to the newest iOS CI run
+          # that actually succeeded. Resolving it here beats pinning a run id
+          # that goes stale the next time CI runs.
+          RID="${{ inputs.run_id }}"
+          if [ -z "$RID" ]; then
+              # No --branch filter. Work happens on chatgpt/* branches too, and
+              # the run that built the current source is often not the newest
+              # one on this branch — filtering by branch signed a stale .ipa
+              # while claiming it was the new one.
+              RID=$(gh run list --repo "${{ github.repository }}" \
+                       --workflow "iOS CI" \
+                       --status success --limit 1 \
+                       --json databaseId --jq '.[0].databaseId')
+          fi
+          # State the source commit explicitly. The .ipa is only meaningful
+          # alongside the commit it was built from, and that has to be provable
+          # from the run rather than assumed from whatever HEAD happens to be.
+          SRC_SHA=$(gh run view "$RID" --repo "${{ github.repository }}" \
+                       --json headSha --jq '.headSha')
+          SRC_BRANCH=$(gh run view "$RID" --repo "${{ github.repository }}" \
+                          --json headBranch --jq '.headBranch')
+          echo "using iOS CI run: $RID"
+          echo "built from source: $SRC_SHA ($SRC_BRANCH)"
+          # Carried into the artifact, not just the log. A consumer that can
+          # only see the artifact — Sync-MiniPad.ps1 names its download folder
+          # from this — would otherwise have to guess, and its only available
+          # guess is this signing run's own commit, which is a different commit
+          # entirely whenever the source was built on another branch. That is
+          # the same "looks current, is not" failure the branch filter caused.
+          mkdir -p artifacts
+          {
+            echo "source_sha: $SRC_SHA"
+            echo "source_branch: $SRC_BRANCH"
+            echo "ios_ci_run: $RID"
+            echo "signing_run: ${{ github.run_id }}"
+            echo "signed_by_commit: ${{ github.sha }}"
+            echo "signed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > artifacts/BUILD-INFO.txt
+          cat artifacts/BUILD-INFO.txt
+          mkdir -p in
+          gh run download "$RID" \
+             --repo "${{ github.repository }}" \
+             --name ipa --dir in
+          ls -l in
+
+      - name: Unpack
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          ( cd stage && unzip -q ../in/MiniPad-PersonalFree-unsigned.ipa )
+          ls stage/Payload
+
+      - name: Signature state before
+        run: |
+          set -euo pipefail
+          APP=stage/Payload/Minis.app
+          EXE="$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")"
+          n=$(otool -l "$EXE" | grep -c LC_CODE_SIGNATURE || true)
+          echo "main executable LC_CODE_SIGNATURE count: $n"
+
+      - name: Ad-hoc sign nested code, then the app
+        run: |
+          set -euo pipefail
+          APP=stage/Payload/Minis.app
+          # Nested code first — the outer bundle's seal covers whatever is
+          # inside it, so signing the app before its frameworks invalidates it.
+          for fw in "$APP"/Frameworks/*.framework; do
+              [ -d "$fw" ] || continue
+              echo "== $(basename "$fw")"
+              codesign --force --sign - --timestamp=none "$fw"
+          done
+          echo "== $(basename "$APP")"
+          codesign --force --sign - --timestamp=none "$APP"
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          APP=stage/Payload/Minis.app
+          EXE="$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")"
+
+          echo "== LC_CODE_SIGNATURE now present? =="
+          n=$(otool -l "$EXE" | grep -c LC_CODE_SIGNATURE || true)
+          echo "count: $n"
+          [ "$n" -ge 1 ] || { echo "FAILED: still unsigned" >&2; exit 1; }
+
+          echo "== architecture unchanged =="
+          lipo -info "$EXE"
+          lipo -info "$EXE" | grep -q arm64 || { echo "FAILED: not arm64" >&2; exit 1; }
+
+          echo "== bundle id unchanged =="
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+
+          echo "== no PlugIns, no test bundle =="
+          [ -d "$APP/PlugIns" ] && { echo "FAILED: PlugIns present" >&2; exit 1; } || true
+          if find stage/Payload -name '*.xctest' | grep -q .; then
+              echo "FAILED: test bundle present" >&2; exit 1
+          fi
+          echo "clean"
+
+          echo "== nested code is structurally signed =="
+          for fw in "$APP"/Frameworks/*.framework; do
+              [ -d "$fw" ] || continue
+              printf '%-40s ' "$(basename "$fw")"
+              codesign -dv "$fw" 2>&1 | grep -m1 '^Signature' || echo '(none)'
+          done
+
+          echo "== app signature =="
+          codesign -dv --verbose=4 "$APP" 2>&1 | sed -n '1,10p'
+          codesign --verify --strict --verbose=2 "$APP" || \
+              echo "(ad-hoc verify is advisory; Sideloadly re-signs anyway)"
+
+      - name: Repackage
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          OUT="$PWD/artifacts/MiniPad-PersonalFree-adhoc.ipa"
+          # -y keeps symlinks as symlinks, matching scripts/make_ipa.sh.
+          ( cd stage && zip -qry "$OUT" Payload )
+          bytes=$(wc -c < "$OUT" | tr -d ' ')
+          sum=$(shasum -a 256 "$OUT" | cut -d' ' -f1)
+          echo "== $OUT =="
+          echo "size    $bytes bytes"
+          echo "sha256  $sum"
+          echo "$sum  $(basename "$OUT")" > "$OUT.sha256"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-adhoc
+          retention-days: 14
+          path: |
+            artifacts/*.ipa
+            artifacts/*.sha256
+            artifacts/BUILD-INFO.txt
+
+# Re-run: touch this file and push — the path filter above is the only trigger
+# available from a non-default branch.
+# Trigger bump: 0b30f1e
+# Trigger: sign 444eec8

@@ -20,7 +20,7 @@ final class ToolSurfacePolicyTests: XCTestCase {
 
     private var allTools: [AgentToolDefinition] {
         ["shell_execute", "file_read", "file_write", "file_edit",
-         "browser_use", "read_image", "memory_get", "memory_write"].map { tool($0) }
+         "browser_use", "read_image", "memory_get", "memory_write", "windows_control"].map { tool($0) }
     }
 
     private func names(_ selection: ToolSurfacePolicy.Selection) -> Set<String> {
@@ -204,6 +204,6 @@ final class ToolSurfacePolicyTests: XCTestCase {
             alreadyDisclosed: [])
         XCTAssertFalse(names(selection).contains("browser_use"))
         XCTAssertEqual(selection.tools.count, 4)
-        XCTAssertEqual(allTools.count, 8)
+        XCTAssertEqual(allTools.count, 9)
     }
 }

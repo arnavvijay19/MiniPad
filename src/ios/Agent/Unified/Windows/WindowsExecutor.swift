@@ -316,7 +316,9 @@ struct WindowsExecutor: UnifiedExecutor {
         try await client.connect()
         guard let caps = await client.capabilities else { throw MCPError.notInitialized }
 
-        if let patch = caps.binding(.applyPatch) {
+        // Native replace-all is only safe when the endpoint explicitly exposes that semantic.
+        if let patch = caps.binding(.applyPatch),
+           !replaceAll || patch.name(for: .replaceAll) != nil {
             var values: [RemoteArg: MCPValue] = [
                 .path: .string(path),
                 .oldString: .string(oldString),

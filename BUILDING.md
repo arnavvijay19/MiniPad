@@ -76,12 +76,15 @@ without setting this.
 | Tool | Version / notes |
 |---|---|
 | macOS | Apple Silicon strongly recommended (see the simulator note below) |
-| Xcode | With the iOS SDK; the project targets **iOS 26.2** and **Swift 6.0** |
-| Homebrew packages | `brew install ninja llvm libarchive pkg-config` |
+| Xcode | With the iOS SDK. CI builds on Xcode 26.6 / iPhoneOS 26.5 SDK |
+| iOS deployment target | **17.0** for the app target — the minimum `mlx-swift-lm` allows. Extensions stay at 16.0 |
+| Homebrew packages | `brew install ninja llvm lld libarchive pkg-config` |
 | Python 3 + Meson | `pip3 install meson` |
 
-`llvm` is needed to compile the guest VDSO, `libarchive` to unpack the rootfs,
-and Meson/Ninja to build the iSH kernel.
+`llvm` is needed to compile the guest VDSO and `lld` to link it — `lld` is a
+separate Homebrew formula, and without it `build_ish.sh` stops with
+`clang: error: invalid linker name in argument '-fuse-ld=lld'`. `libarchive`
+unpacks the rootfs, and Meson/Ninja build the iSH kernel.
 
 ### 1. Build the native dependencies
 
@@ -134,10 +137,41 @@ xcodebuild -project src/ios/Minis.xcodeproj -scheme Minis \
 > for 'iOS'` (or a missing-symbol error for x86_64 on Intel Macs). Build for a
 > device destination, or rebuild the native deps for the simulator SDK.
 
+### On-device inference
+
+`mlx-swift-lm` is already declared in the project (products `MLXLLM`,
+`MLXLMCommon`, `MLXHuggingFace`, pinned to an exact revision), so a normal
+build compiles `MLXLocalProvider` — no manual package step. The first build
+compiles MLX's Metal kernels, which needs the Metal toolchain; Xcode installs
+it on demand, or `xcodebuild -downloadComponent MetalToolchain` fetches it
+up front.
+
+The on-device code is gated on `MINIS_LOCAL_INFERENCE`, a compilation
+condition defined on the app target only — not on `canImport(MLXLLM)`, which is
+true in every target of an Xcode project whether or not that target links MLX.
+
+`python3 scripts/add_mlx_package.py --check` verifies the project still has all
+of it wired; `scripts/typecheck_mlx_adapter.sh` verifies the adapter against
+that exact revision's API.
+
 ### Targets
 
 `Minis` (app), `MinisShare` (share extension), `AgentWidgetExtension`,
 `MinisFileProvider`, plus `MinisTests` / `MinisUITests`.
+
+Builds signed with a **free** Apple ID cannot have the extensions — each needs
+an App Group, which requires a paid membership to register. Package the app
+without them with `scripts/make_ipa.sh <app> <out.ipa> --strip-extensions`;
+see [FREE_DEVELOPER_CAPABILITIES.md](docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md).
+
+### Continuous integration
+
+`.github/workflows/ios-ci.yml` does all of the above on a GitHub-hosted
+`macos-26` runner and uploads an installable unsigned `.ipa`. It is the
+authoritative Apple build gate — a green run means the native dependencies,
+the app, the extensions and MLX all built for a real device. The Linux job in
+the same workflow runs the unit tests and the project validators in about a
+minute, on every push.
 
 ---
 

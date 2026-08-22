@@ -85,6 +85,16 @@ indirect enum MCPValue: Codable, Hashable, Sendable {
         switch any {
         case is NSNull: return .null
         case let v as MCPValue: return v
+        // Check NSNumber before Swift numeric/Bool casts. Foundation bridges an
+        // NSNumber(1) to Bool on Linux, so testing `as Bool` first silently
+        // turns JSON array indices such as [1, 2] into [true, 2]. CFBoolean is
+        // still distinguishable by its ObjC type encoding ("c").
+        case let v as NSNumber:
+            if String(cString: v.objCType) == "c" { return .bool(v.boolValue) }
+            if v.doubleValue == v.doubleValue.rounded(), abs(v.doubleValue) < 9.2e18 {
+                return .int(v.intValue)
+            }
+            return .double(v.doubleValue)
         case let v as Bool: return .bool(v)
         case let v as Int: return .int(v)
         case let v as Int64: return .int(Int(v))
@@ -93,18 +103,6 @@ indirect enum MCPValue: Codable, Hashable, Sendable {
         case let v as String: return .string(v)
         case let v as [Any]: return .array(v.map(MCPValue.from))
         case let v as [String: Any]: return .object(v.mapValues(MCPValue.from))
-        case let v as NSNumber:
-            // NSNumber is where JSONSerialization hides booleans. The `as Bool`
-            // case above catches CFBoolean once it has bridged; this is the
-            // fallback for an NSNumber that reached us unbridged, identified by
-            // its ObjC type encoding ("c", i.e. char, is how CFBoolean encodes).
-            // JSONSerialization never produces a genuine Int8, so there is no
-            // collision to worry about on this path.
-            if String(cString: v.objCType) == "c" { return .bool(v.boolValue) }
-            if v.doubleValue == v.doubleValue.rounded(), abs(v.doubleValue) < 9.2e18 {
-                return .int(v.intValue)
-            }
-            return .double(v.doubleValue)
         default:
             return .string(String(describing: any))
         }
