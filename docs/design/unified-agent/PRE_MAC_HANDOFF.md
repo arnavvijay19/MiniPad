@@ -1,5 +1,10 @@
 # Getting MiniPad onto an M4 iPad before owning a Mac
 
+> **There is a Mac now.** This document describes the Windows path, which
+> still works and is still the fallback. If you are at the MacBook, read
+> [MAC_HANDOFF.md](MAC_HANDOFF.md) instead — it is faster in every respect,
+> and it covers two signing fixes this path never needed.
+
 The question this file answers: **what still actually requires a personal Mac?**
 
 The short answer is **nothing about building the app**. A GitHub-hosted

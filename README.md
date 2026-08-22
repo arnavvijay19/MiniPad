@@ -9,7 +9,8 @@
 > CI builds an installable unsigned `.ipa` on a hosted macOS runner, so no Mac
 > is needed to get it onto an iPad.
 >
-> * [Pre-Mac handoff](docs/design/unified-agent/PRE_MAC_HANDOFF.md) — how to build, sign and install from Windows with a free Apple ID
+> * [Mac handoff](docs/design/unified-agent/MAC_HANDOFF.md) — build, sign and install from a Mac, and the two fixes needed before the first build
+> * [Pre-Mac handoff](docs/design/unified-agent/PRE_MAC_HANDOFF.md) — the Windows path, for when the Mac is not to hand
 > * [Free developer capabilities](docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md) — exactly what a free Apple account costs you
 > * [Architecture](docs/design/unified-agent/ARCHITECTURE.md) · [Verification](docs/design/unified-agent/VERIFICATION.md) · [Device log](docs/design/unified-agent/DEVICE_LOG.md)
 > * [Handoff](docs/design/unified-agent/HANDOFF.md) — the queue between the session that edits the code and the one holding the iPad; [CLAUDE.md](CLAUDE.md) explains which is which

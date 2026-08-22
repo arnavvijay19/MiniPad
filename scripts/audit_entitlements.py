@@ -152,7 +152,40 @@ def main() -> int:
     free_targets = [t for t in TARGETS if t[2]]
     print(f"\nOK  {len(rows)} entitlements classified; "
           f"{len(free_targets)} free-signable configuration(s) clean")
+
+    warn_unwired_free_entitlements()
     return 0
+
+
+def warn_unwired_free_entitlements() -> None:
+    """Say so if the free-signable entitlements file is used by no target.
+
+    A correct file that nothing points at is not protection. This went
+    unnoticed for the whole pre-Mac phase because nothing here could apply
+    entitlements: CI builds with CODE_SIGNING_ALLOWED=NO, and Sideloadly
+    rewrites them when it re-signs. The first thing that ever applies them for
+    real is Xcode on a Mac, and by then the failure looks like a broken
+    project rather than an unset build setting.
+
+    A warning, not a failure: wiring it needs a build configuration added in
+    Xcode, where the signing result is observable. Failing the build over a
+    known and deliberately deferred gap would only get the check disabled.
+    """
+    pbxproj = os.path.join(ROOT, "src/ios/Minis.xcodeproj/project.pbxproj")
+    free_file = "Minis-PersonalFree.entitlements"
+    if not os.path.exists(pbxproj):
+        return
+    with open(pbxproj, encoding="utf-8", errors="replace") as fh:
+        if free_file in fh.read():
+            return
+    print(
+        f"\nWARN  {free_file} is referenced by no target in project.pbxproj.\n"
+        f"      The app target signs with Minis.entitlements, which a free\n"
+        f"      Apple ID cannot sign. Harmless while every build is unsigned;\n"
+        f"      it is the first thing to fix on a Mac. See\n"
+        f"      docs/design/unified-agent/MAC_HANDOFF.md.",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

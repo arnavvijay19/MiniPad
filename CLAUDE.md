@@ -15,11 +15,18 @@ Read it before doing anything.
 |---|---|---|---|
 | Linux, no `xcodebuild` | **cloud** | the code, git, GitHub Actions | build for iOS, touch the iPad |
 | Windows | **local** | the iPad over USB, Sideloadly, the signed `.ipa` | build for iOS *at all* — there is no Xcode for Windows |
-| macOS with `xcodebuild` | a Mac | everything | — |
+| macOS with `xcodebuild` | **mac** | everything — build, sign, install, crash logs | — |
 
-The distinction that matters: **only CI can tell you whether Swift compiles.**
-Neither side can do it locally today. Do not claim a code change works because
-it looks right — push it and read the run.
+The distinction that matters used to be: *only CI can tell you whether Swift
+compiles.* That is no longer true — there is a Mac now, and
+[MAC_HANDOFF.md](docs/design/unified-agent/MAC_HANDOFF.md) is how to use it.
+It stays true for the cloud and local sessions, which still cannot build.
+If you are one of those two: do not claim a code change works because it looks
+right — push it and read the run.
+
+**If you are the Mac: read MAC_HANDOFF.md before pressing ⌘R.** Two one-time
+fixes are needed before a free Apple ID can sign this project, and without them
+the failure looks like a broken repository rather than a signing configuration.
 
 ---
 
@@ -120,7 +127,8 @@ and cannot be selected. All three happened.
 
 | | |
 |---|---|
-| [PRE_MAC_HANDOFF.md](docs/design/unified-agent/PRE_MAC_HANDOFF.md) | build → sign → install from Windows, and what still needs the iPad |
+| [MAC_HANDOFF.md](docs/design/unified-agent/MAC_HANDOFF.md) | build → sign → install from the Mac; read before the first ⌘R |
+| [PRE_MAC_HANDOFF.md](docs/design/unified-agent/PRE_MAC_HANDOFF.md) | the Windows path — still the fallback when the Mac is not to hand |
 | [FREE_DEVELOPER_CAPABILITIES.md](docs/design/unified-agent/FREE_DEVELOPER_CAPABILITIES.md) | what a free Apple ID costs you, with the evidence |
 | [ARCHITECTURE.md](docs/design/unified-agent/ARCHITECTURE.md) | why the design is what it is |
 | [VERIFICATION.md](docs/design/unified-agent/VERIFICATION.md) | what has been checked and how to repeat it |

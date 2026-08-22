@@ -60,6 +60,24 @@ it with the date so a stale item is obvious.
 
 ---
 
+## For the Mac session — the machine that can actually build
+
+*New. Start at [MAC_HANDOFF.md](MAC_HANDOFF.md), not here.*
+
+- [ ] **2026-08-22 · Two signing fixes before the first build.** The app target
+      signs with `Minis.entitlements` (HealthKit, HomeKit, WeatherKit, NFC,
+      iCloud) and `Minis-PersonalFree.entitlements` is wired to nothing —
+      `grep -c Minis-PersonalFree src/ios/Minis.xcodeproj/project.pbxproj` is 0.
+      Also the three extensions need App Groups and cannot be signed free.
+      MAC_HANDOFF.md §"before you press Run" has both fixes.
+
+- [ ] **2026-08-22 · Settle the memory entitlement.** Two minutes here, versus
+      a 150-minute round trip from Windows, and it is the most likely cause of
+      the intermittent load crash. Result goes in DEVICE_LOG.md *and*
+      FREE_DEVELOPER_CAPABILITIES.md either way.
+
+---
+
 ## For the cloud session — things to fix or build
 
 *Written by the local session. Anything here needs a code change and a CI run.*
